@@ -1,0 +1,3 @@
+{
+  "versionFiles": ["pyproject.toml", "nautobot_ssot_lantronix/__init__.py", "nautobot_ssot_lantronix/percepxion/client.py"]
+}

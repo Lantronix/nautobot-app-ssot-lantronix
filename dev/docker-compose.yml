@@ -1,0 +1,52 @@
+# Development Nautobot 3.2 + SSoT stack for nautobot-app-ssot-lantronix.
+# Run from the repo root: docker compose -p nautobot-lantronix-dev -f dev/docker-compose.yml up -d
+# Secrets come from dev/.env (untracked): NAUTOBOT_SECRET_KEY, NAUTOBOT_DB_PASSWORD,
+# NAUTOBOT_SUPERUSER_PASSWORD, NAUTOBOT_SUPERUSER_API_TOKEN, PERCEPXION_URL, PERCEPXION_USERNAME, PERCEPXION_PASSWORD,
+# PERCEPXION_ORG_ID.
+x-nautobot: &nautobot
+  build: { context: ., dockerfile: Dockerfile }
+  image: nautobot-lantronix-dev:3.2.8
+  env_file: .env
+  environment: &env
+    NAUTOBOT_DB_HOST: db
+    NAUTOBOT_DB_NAME: nautobot
+    NAUTOBOT_DB_USER: nautobot
+    NAUTOBOT_REDIS_HOST: redis
+    NAUTOBOT_CONFIG: /opt/nautobot/nautobot_config.py
+    PYTHONPATH: /source
+  volumes:
+    - ./nautobot_config.py:/opt/nautobot/nautobot_config.py:ro
+    - ..:/source:ro
+  depends_on: [db, redis]
+  restart: unless-stopped
+
+services:
+  nautobot:
+    <<: *nautobot
+    ports: ["8082:8080"]
+    environment:
+      <<: *env
+      NAUTOBOT_CREATE_SUPERUSER: "true"
+      NAUTOBOT_SUPERUSER_NAME: admin
+  worker:
+    <<: *nautobot
+    entrypoint: ["nautobot-server", "celery", "worker", "-l", "INFO"]
+    healthcheck: { disable: true }
+  beat:
+    <<: *nautobot
+    entrypoint: ["nautobot-server", "celery", "beat", "-l", "INFO"]
+    healthcheck: { disable: true }
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nautobot
+      POSTGRES_USER: nautobot
+      POSTGRES_PASSWORD: ${NAUTOBOT_DB_PASSWORD}
+    volumes: [db-data:/var/lib/postgresql/data]
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  db-data:

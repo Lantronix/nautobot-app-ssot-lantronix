@@ -1,0 +1,12 @@
+.venv/
+build/
+*.egg-info/
+__pycache__/
+.env
+px.env
+dev/.env
+
+# Local planning and agent files, never published
+.specify/
+specs/
+.claude/

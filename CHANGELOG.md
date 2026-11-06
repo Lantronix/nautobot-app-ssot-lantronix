@@ -4,6 +4,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-06
+
 ### Added
 - A Docker quick start in `docker/` that runs Nautobot with nautobot-ssot and the app, built from this repository.
 - SLC and EMG device type definitions in `docker/device-types`, with a setup script that imports them and creates the default location.
@@ -21,6 +23,7 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 ### Added
 - First release. Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion, with ServiceNow console paths and Golden Config backups and compliance for SLC devices.
 
-[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/releases/tag/v0.1.0

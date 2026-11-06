@@ -24,25 +24,63 @@ Two optional modules build on the synced data:
 | nautobot-ssot | 4.8 or later, below 5 |
 | Python | 3.10 to 3.14 |
 | Percepxion | Percepxion cloud or on-premises, and a Percepxion user with the **tenant_user** role in the organization you sync. No administrator role is needed. |
-| Device types | Lantronix device types from the [NetBox devicetype-library](https://github.com/netbox-community/devicetype-library/tree/master/device-types/Lantronix) (the same YAML), imported before the first sync |
+| Device types | Lantronix SLC and EMG device types, imported before the first sync. The definitions are in [`docker/device-types`](docker/device-types). |
 
 ## Install
 
 1. Install the package into the Nautobot environment:
 
    ```
-   pip install nautobot-app-ssot-lantronix
+   pip install https://github.com/Lantronix/nautobot-app-ssot-lantronix/archive/refs/tags/v0.1.1.tar.gz
    ```
 
-   For the ServiceNow module, install `nautobot-app-ssot-lantronix[servicenow]`.
+   Replace `v0.1.1` with the latest [release](https://github.com/Lantronix/nautobot-app-ssot-lantronix/releases). For the ServiceNow module, install `"nautobot-app-ssot-lantronix[servicenow] @ <that URL>"`. For a Docker install, follow [Docker](#docker) instead of these steps.
 
 2. Enable and configure the app in `nautobot_config.py` (see [Configuration](#configuration)).
 
 3. Run `nautobot-server post_upgrade` and restart Nautobot and its Celery worker.
 
-4. Import the Lantronix device types for your hardware.
+4. Import the device types for your hardware from [`docker/device-types`](docker/device-types) with **Devices > Device Types > Import**, and create the location set as `default_location`.
+
+5. Run the job (see [First sync](#first-sync)).
 
 On the first run the app creates the manufacturer `Lantronix`, the platform `Lantronix ITM OS` (network driver `lantronix_itmgos`), the device role you configure, the custom fields it writes and the **Lantronix: Open console** custom link, and reuses any that already exist.
+
+## Docker
+
+This runs Nautobot 3.2 with nautobot-ssot and the app in Docker, including its database and Redis. You need Docker with Compose and a Percepxion user with the **tenant_user** role.
+
+1. Clone the repository and create your settings file:
+
+   ```
+   git clone https://github.com/Lantronix/nautobot-app-ssot-lantronix.git
+   cd nautobot-app-ssot-lantronix/docker
+   cp env.example .env
+   ```
+
+2. Fill in every value in `.env`. Generate the secret key and passwords with `openssl rand -hex 32`, and the API token with `openssl rand -hex 20`.
+
+3. Build and start Nautobot. The first start runs the database migrations and can take several minutes.
+
+   ```
+   docker compose up -d --build
+   ```
+
+4. Import the device types and create the **Console Servers** location. Running this again changes nothing that already exists.
+
+   ```
+   docker compose exec nautobot nautobot-server nbshell --command "exec(open('/opt/nautobot-lantronix/setup.py').read())"
+   ```
+
+5. Open http://localhost:8080, sign in as `admin` with `NAUTOBOT_SUPERUSER_PASSWORD`, and follow [First sync](#first-sync).
+
+To use another port, set `NAUTOBOT_PORT` in `.env`. The stack runs as Compose project `nautobot-lantronix`, so its containers and database stay separate from any other Nautobot on the host.
+
+## First sync
+
+1. Go to **Jobs > Jobs**, edit **Percepxion to Nautobot** and enable it.
+2. Run it with **Dryrun** on to see the diff without writing anything.
+3. Run it again with **Dryrun** off.
 
 ## Configuration
 

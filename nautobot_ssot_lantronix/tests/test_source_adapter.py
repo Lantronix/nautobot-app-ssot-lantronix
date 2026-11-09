@@ -52,6 +52,17 @@ def test_model_rule_resolves_type():
     assert dev.device_type_slug == "lantronix-slc9016-16e"
 
 
+def test_device_carries_cleaned_firmware():
+    rules = {("SLC9016", 16, 0): "lantronix-slc9016-16e"}
+    dev = device()
+    dev = type(dev)(**{**dev.__dict__, "firmware": "9.7.0.2R1\x1b[0m"})
+    loaded = load(FakeClient([dev], []), rules).get(
+        LantronixDevice, {"percepxion_device_id": "dev-0001"}
+    )
+    assert loaded.firmware.startswith("9.7.0.2R1")
+    assert "\x1b" not in loaded.firmware
+
+
 def test_emg_maps_to_sku():
     emg = device("dev-0002", "EMG-A", model="EMG851101", rj45=8)
     dev = load(FakeClient([emg], [])).get(LantronixDevice, {"percepxion_device_id": "dev-0002"})

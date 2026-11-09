@@ -4,6 +4,9 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Added
+- Devices carry the running firmware Percepxion reports, in a new `lx_firmware_version` custom field.
+
 ### Fixed
 - The package now requires Python 3.11 or later, matching Nautobot 3.x. It listed Python 3.10, where Nautobot 3 can't be installed.
 

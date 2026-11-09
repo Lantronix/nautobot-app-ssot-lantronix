@@ -14,6 +14,7 @@ from diffsync import Adapter
 
 from ..constants import (
     CF_DEVICE_ID,
+    CF_FIRMWARE,
     CF_MGMT_IP,
     MANUFACTURER,
     NETWORK_DRIVER,
@@ -60,6 +61,7 @@ class NautobotAdapter(Adapter):
                     name=dev.name,
                     serial=dev.serial or "",
                     mgmt_ip=(dev._custom_field_data or {}).get(CF_MGMT_IP) or "",
+                    firmware=(dev._custom_field_data or {}).get(CF_FIRMWARE) or "",
                     pk=dev.pk,
                 )
             )
@@ -114,6 +116,7 @@ class NautobotAdapter(Adapter):
                 return None
             dev._custom_field_data[CF_DEVICE_ID] = pxid
             dev._custom_field_data[CF_MGMT_IP] = source.mgmt_ip or None
+            dev._custom_field_data[CF_FIRMWARE] = source.firmware or None
             dev.name = name
             if serial and not dev.serial:
                 dev.serial = serial
@@ -154,6 +157,7 @@ class NautobotAdapter(Adapter):
         )
         dev._custom_field_data[CF_DEVICE_ID] = pxid
         dev._custom_field_data[CF_MGMT_IP] = source.mgmt_ip or None
+        dev._custom_field_data[CF_FIRMWARE] = source.firmware or None
         dev.validated_save()
         return dev
 

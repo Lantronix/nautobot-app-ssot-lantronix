@@ -117,6 +117,7 @@ class PercepxionAdapter(Adapter):
                     name=name,
                     serial=serial,
                     mgmt_ip=safe_ip(dev.ip) or "",
+                    firmware=clean_text(dev.firmware, 32),
                     device_type_slug=slug,
                 )
             )

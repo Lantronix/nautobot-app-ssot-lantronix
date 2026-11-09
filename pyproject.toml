@@ -8,7 +8,7 @@ version = "0.2.0"
 description = "Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion."
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.11,<3.15"
 dependencies = [
     "nautobot>=3.1,<4.0",
     "nautobot-ssot>=4.8,<5",

@@ -22,7 +22,7 @@ Two optional modules build on the synced data:
 |---|---|
 | Nautobot | 3.1 or later, below 4.0 |
 | nautobot-ssot | 4.8 or later, below 5 |
-| Python | 3.10 to 3.14 |
+| Python | 3.11 to 3.14 |
 | Percepxion | Percepxion cloud or on-premises, and a Percepxion user with the **tenant_user** role in the organization you sync. No administrator role is needed. |
 | Device types | Lantronix SLC and EMG device types, imported before the first sync. The definitions are in [`docker/device-types`](docker/device-types). |
 

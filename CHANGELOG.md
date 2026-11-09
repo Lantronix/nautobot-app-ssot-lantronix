@@ -4,6 +4,9 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Fixed
+- The package now requires Python 3.11 or later, matching Nautobot 3.x. It listed Python 3.10, where Nautobot 3 can't be installed.
+
 ## [0.2.0] - 2026-11-06
 
 ### Added

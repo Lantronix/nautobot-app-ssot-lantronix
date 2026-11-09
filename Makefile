@@ -2,7 +2,7 @@
 VENV ?= .venv
 PY = $(VENV)/bin/python
 COMPOSE = docker compose -p nautobot-lantronix-dev -f dev/docker-compose.yml
-NAUTOBOT_TESTS = nautobot_ssot_lantronix.tests.test_target_adapter nautobot_ssot_lantronix.tests.test_servicenow_console_paths
+NAUTOBOT_TESTS = nautobot_ssot_lantronix.tests.test_target_adapter nautobot_ssot_lantronix.tests.test_servicenow_console_paths nautobot_ssot_lantronix.tests.test_app_registry
 
 .PHONY: venv test test-nautobot lint scan
 venv:

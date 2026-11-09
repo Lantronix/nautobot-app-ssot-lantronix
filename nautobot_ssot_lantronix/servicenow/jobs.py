@@ -19,9 +19,7 @@ name = "Lantronix SSoT"  # job grouping in the Nautobot UI
 class ServiceNowConsolePathTarget(ServiceNowDataTarget):
     """Stock Nautobot to ServiceNow sync plus one CI relationship per Lantronix console cable."""
 
-    delete_records = (
-        None  # removes the stock "delete records" option; this job never deletes
-    )
+    delete_records = None  # removes the stock "delete records" option; this job never deletes
 
     class Meta:
         name = "Nautobot ⟹ ServiceNow (with console paths)"

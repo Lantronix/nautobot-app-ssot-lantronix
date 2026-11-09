@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: |
+          ruff check nautobot_ssot_lantronix
+          ruff format --check nautobot_ssot_lantronix
+      - name: Tests that need no Nautobot
+        run: pytest -q
+
+  nautobot:
+    name: Nautobot ${{ matrix.nautobot }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest and newest Nautobot release the app supports (min_version/max_version in __init__.py).
+        nautobot: ["3.1.8", "3.2.9"]
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nautobot
+          POSTGRES_PASSWORD: nautobot
+          POSTGRES_DB: nautobot
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      NAUTOBOT_CONFIG: ${{ github.workspace }}/dev/nautobot_config.py
+      NAUTOBOT_SECRET_KEY: ci-only-not-a-secret-ci-only-not-a-secret-ci-only
+      NAUTOBOT_DB_HOST: localhost
+      NAUTOBOT_DB_PASSWORD: nautobot
+      NAUTOBOT_REDIS_HOST: localhost
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install Nautobot and the app
+        env:
+          NAUTOBOT_VERSION: ${{ matrix.nautobot }}
+        run: pip install "nautobot==$NAUTOBOT_VERSION" -e ".[servicenow]"
+      - name: Tests under the Nautobot test runner
+        run: |
+          # The modules pytest runs need no Nautobot; the rest are listed as NAUTOBOT_TESTS in the Makefile.
+          tests=$(sed -n 's/^NAUTOBOT_TESTS = //p' Makefile)
+          [ -n "$tests" ] || { echo "::error::NAUTOBOT_TESTS not found in the Makefile"; exit 1; }
+          echo "Running: $tests"
+          nautobot-server test --noinput --parallel 1 $tests

@@ -4,6 +4,9 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Changed
+- Published on PyPI. Install with `pip install nautobot-app-ssot-lantronix`.
+
 ## [0.3.0] - 2026-11-10
 
 ### Added

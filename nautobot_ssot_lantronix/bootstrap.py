@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from .constants import (
     CF_DEVICE_ID,
+    CF_FIRMWARE,
     CF_MGMT_IP,
     MANUFACTURER,
     NETWORK_DRIVER,
@@ -42,6 +43,7 @@ def ensure_objects(config, logger) -> None:
     fields = [
         (CF_DEVICE_ID, "Percepxion device ID", CustomFieldTypeChoices.TYPE_TEXT, device_ct),
         (CF_MGMT_IP, "Percepxion management IP", CustomFieldTypeChoices.TYPE_TEXT, device_ct),
+        (CF_FIRMWARE, "Firmware version", CustomFieldTypeChoices.TYPE_TEXT, device_ct),
     ]
     for key, label in PORT_CF_LABELS.items():
         cf_type = (

@@ -4,6 +4,7 @@ MANUFACTURER = "Lantronix"
 PLATFORM_NAME = "Lantronix ITM OS"
 NETWORK_DRIVER = "lantronix_itmgos"  # matches the Netmiko driver
 CF_DEVICE_ID = "percepxion_device_id"
+CF_FIRMWARE = "lx_firmware_version"  # running firmware Percepxion reports
 CF_MGMT_IP = "lx_mgmt_ip"  # management IP Percepxion reports; never written to IPAM
 
 # diffsync attribute -> console server port custom field key

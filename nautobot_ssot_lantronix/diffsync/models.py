@@ -13,7 +13,7 @@ from uuid import UUID
 from diffsync import DiffSyncModel
 from django.core.exceptions import ValidationError
 
-from ..constants import CF_DEVICE_ID, CF_MGMT_IP, PORT_CF, port_name
+from ..constants import CF_DEVICE_ID, CF_FIRMWARE, CF_MGMT_IP, PORT_CF, port_name
 
 ATTACHED_ATTRS = (
     "state",
@@ -30,13 +30,14 @@ ATTACHED_ATTRS = (
 class LantronixDevice(DiffSyncModel):
     _modelname: ClassVar[str] = "device"
     _identifiers: ClassVar[tuple] = ("percepxion_device_id",)
-    _attributes: ClassVar[tuple] = ("name", "serial", "mgmt_ip")
+    _attributes: ClassVar[tuple] = ("name", "serial", "mgmt_ip", "firmware")
     _children: ClassVar[dict] = {"console_port": "console_ports"}
 
     percepxion_device_id: str
     name: str
     serial: str = ""
     mgmt_ip: str = ""
+    firmware: str = ""
     # Create-only: not diffed, read from the source object at create time.
     device_type_slug: str = ""
     console_ports: list = []
@@ -68,6 +69,8 @@ class LantronixDevice(DiffSyncModel):
             device.serial = attrs["serial"]
         if "mgmt_ip" in attrs:
             device._custom_field_data[CF_MGMT_IP] = attrs["mgmt_ip"] or None
+        if attrs.get("firmware"):  # keep the last known value if Percepxion reports none
+            device._custom_field_data[CF_FIRMWARE] = attrs["firmware"]
         try:
             device.validated_save()
         except ValidationError as exc:

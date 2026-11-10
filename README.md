@@ -31,10 +31,10 @@ Two optional modules build on the synced data:
 1. Install the package into the Nautobot environment:
 
    ```
-   pip install https://github.com/Lantronix/nautobot-app-ssot-lantronix/archive/refs/tags/v0.1.1.tar.gz
+   pip install nautobot-app-ssot-lantronix
    ```
 
-   Replace `v0.1.1` with the latest [release](https://github.com/Lantronix/nautobot-app-ssot-lantronix/releases). For the ServiceNow module, install `"nautobot-app-ssot-lantronix[servicenow] @ <that URL>"`. For a Docker install, follow [Docker](#docker) instead of these steps.
+   To pin a version, install `nautobot-app-ssot-lantronix==X.Y.Z` with a version from the [releases](https://github.com/Lantronix/nautobot-app-ssot-lantronix/releases). For the ServiceNow module, install `"nautobot-app-ssot-lantronix[servicenow]"`. For a Docker install, follow [Docker](#docker) instead of these steps.
 
 2. Enable and configure the app in `nautobot_config.py` (see [Configuration](#configuration)).
 

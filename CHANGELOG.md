@@ -4,6 +4,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-10
+
 ### Changed
 - Published on PyPI. Install with `pip install nautobot-app-ssot-lantronix`.
 
@@ -34,7 +36,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 ### Added
 - First release. Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion, with ServiceNow console paths and Golden Config backups and compliance for SLC devices.
 
-[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.1.0...v0.1.1

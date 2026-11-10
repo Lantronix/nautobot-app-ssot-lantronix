@@ -16,6 +16,12 @@ Two optional modules build on the synced data:
 - **ServiceNow console paths**: the stock nautobot-ssot ServiceNow job plus a "Connects to" relationship between each attached device and the console server port that reaches it.
 - **Golden Config**: a Nornir dispatcher that backs up SLC configuration with every secret masked, for Nautobot Golden Config backup, intended and compliance jobs.
 
+![The SSoT sync diff for a console server and its ports, read from Percepxion](https://raw.githubusercontent.com/Lantronix/nautobot-app-ssot-lantronix/main/docs/images/ssot-sync-diff.png)
+
+![Console server ports labeled with the name set on the console server and described with the attached device's hostname](https://raw.githubusercontent.com/Lantronix/nautobot-app-ssot-lantronix/main/docs/images/console-server-ports.png)
+
+![A console server port with the attached device's details in custom fields, and an Open console button](https://raw.githubusercontent.com/Lantronix/nautobot-app-ssot-lantronix/main/docs/images/port-attached-device.png)
+
 ## Requirements
 
 | | |
@@ -25,6 +31,15 @@ Two optional modules build on the synced data:
 | Python | 3.11 to 3.14 |
 | Percepxion | Percepxion cloud or on-premises, and a Percepxion user with the **tenant_user** role in the organization you sync. No administrator role is needed. |
 | Device types | Lantronix SLC and EMG device types, imported before the first sync. The definitions are in [`docker/device-types`](docker/device-types). |
+
+### Compatibility
+
+| nautobot-app-ssot-lantronix | Nautobot | nautobot-ssot | Python |
+|---|---|---|---|
+| 0.3.0 and later | 3.1 and later 3.x | 4.8 and later 4.x | 3.11 to 3.14 |
+| 0.1.0 to 0.2.0 | 3.1 and later 3.x | 4.8 and later 4.x | 3.10 to 3.14 |
+
+CI runs the tests against Nautobot 3.1 and 3.2. Beyond nautobot-ssot, the core sync needs no other app or service. The optional ServiceNow module needs `nautobot-ssot[servicenow]`, and the optional Golden Config module needs Nautobot Golden Config and a Netmiko release that includes the `lantronix_itmgos` driver.
 
 ## Install
 
@@ -154,6 +169,11 @@ PLUGINS_CONFIG["nautobot_plugin_nornir"] = {
 ```
 
 Backups use the console server's own configuration export and need a Netmiko release that includes the `lantronix_itmgos` driver. Every password, community and key is replaced with `<secret hidden>`, and a backup that can't be proven fully masked is refused rather than saved.
+
+## Support
+
+- Bugs and feature requests: [GitHub Issues](https://github.com/Lantronix/nautobot-app-ssot-lantronix/issues). Include the app, Nautobot and nautobot-ssot versions, and the job log.
+- Questions about Percepxion or Lantronix console servers: [Lantronix Technical Support](https://www.lantronix.com/technical-support/).
 
 ## License
 

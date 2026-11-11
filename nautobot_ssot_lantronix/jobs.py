@@ -64,6 +64,11 @@ class PercepxionDataSource(DataSource):
         client = PercepxionClient(
             cfg.url, cfg.username, cfg.password, verify=cfg.verify, ca_bundle=cfg.ca_bundle
         )
+        if not cfg.verify and not cfg.ca_bundle:
+            self.logger.warning(
+                "TLS certificate verification is off for the Percepxion endpoint "
+                "(verify or PERCEPXION_VERIFY). The server's identity isn't checked."
+            )
         self.source_adapter = PercepxionAdapter(job=self, config=cfg, client=client)
         try:
             client.login()
@@ -72,6 +77,8 @@ class PercepxionDataSource(DataSource):
             raise RuntimeError("Percepxion rejected the login for the configured account") from None
         except (PercepxionUnavailable, PartialData) as exc:
             raise RuntimeError(f"Percepxion read failed, nothing changed: {exc}") from None
+        finally:
+            client.logout()  # everything Percepxion is asked for has been read by now
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         reason = sanitize(str(exc))

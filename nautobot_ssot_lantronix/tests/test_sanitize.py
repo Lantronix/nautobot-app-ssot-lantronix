@@ -74,3 +74,8 @@ def test_safe_ip_rejects_scoped_and_junk():
     assert safe_ip("fe80::1%eth0") is None
     assert safe_ip("fe80::1%x@evil.example") is None
     assert safe_ip("192.0.2.1/24") is None and safe_ip("host") is None and safe_ip(None) is None
+
+
+@pytest.mark.parametrize("cp", [0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF, 0x00AD])
+def test_clean_text_strips_invisible_format_characters(cp):
+    assert clean_text(f"core{chr(cp)}-sw1", 64) == "core-sw1"

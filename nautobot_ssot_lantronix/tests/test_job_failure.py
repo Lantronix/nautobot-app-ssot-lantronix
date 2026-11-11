@@ -14,14 +14,20 @@ JOB = "PercepxionDataSource"
 SECRET = "sup3r-secret-pw"
 
 
-def run_failing(error):
+def run_failing(error, source_cfg=None, clients=None):
     # Settings come from the test, not PERCEPXION_* in the environment.
     config = mock.patch.object(
-        PercepxionDataSource, "source_config", new_callable=mock.PropertyMock, return_value=cfg()
+        PercepxionDataSource,
+        "source_config",
+        new_callable=mock.PropertyMock,
+        return_value=source_cfg or cfg(),
     )
     with config, mock.patch(f"{MODULE}.PercepxionClient") as client:
         client.return_value.login.side_effect = error
-        return create_job_result_and_run_job(MODULE, JOB, dryrun=True)
+        result = create_job_result_and_run_job(MODULE, JOB, dryrun=True)
+        if clients is not None:
+            clients.append(client.return_value)
+        return result
 
 
 class JobFailureLoggingTests(TransactionTestCase):
@@ -43,3 +49,22 @@ class JobFailureLoggingTests(TransactionTestCase):
             result = run_failing(error)
         entries = list(result.job_log_entries.values_list("message", flat=True))
         self.assertTrue(any("jobgroup/search returned HTTP 400" in m for m in entries))
+
+    def test_session_is_ended_even_when_the_read_fails(self):
+        clients = []
+        with self.assertLogs("nautobot_ssot_lantronix.sync", "WARNING"):
+            run_failing(
+                PercepxionUnavailable("POST /v3/device/search returned HTTP 500"), clients=clients
+            )
+        clients[0].logout.assert_called_once()
+
+    def test_job_log_says_when_tls_verification_is_off(self):
+        from dataclasses import replace
+
+        with self.assertLogs("nautobot_ssot_lantronix.sync", "WARNING"):
+            result = run_failing(
+                PercepxionUnavailable("POST /v3/device/search returned HTTP 500"),
+                source_cfg=replace(cfg(), verify=False),
+            )
+        entries = list(result.job_log_entries.values_list("message", flat=True))
+        self.assertTrue(any("TLS certificate verification is off" in m for m in entries))

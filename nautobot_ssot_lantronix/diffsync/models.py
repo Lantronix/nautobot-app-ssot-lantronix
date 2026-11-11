@@ -13,7 +13,14 @@ from uuid import UUID
 from diffsync import DiffSyncModel
 from django.core.exceptions import ValidationError
 
-from ..constants import CF_DEVICE_ID, CF_FIRMWARE, CF_MGMT_IP, PORT_CF, port_name
+from ..constants import (
+    CF_DEVICE_ID,
+    CF_FIRMWARE,
+    CF_MGMT_IP,
+    MANUFACTURER,
+    PORT_CF,
+    port_name,
+)
 
 ATTACHED_ATTRS = (
     "state",
@@ -117,7 +124,8 @@ class LantronixConsolePort(DiffSyncModel):
 
         name = port_name(ids["number"])
         device = Device.objects.filter(
-            **{f"_custom_field_data__{CF_DEVICE_ID}": ids["percepxion_device_id"]}
+            device_type__manufacturer__name=MANUFACTURER,
+            **{f"_custom_field_data__{CF_DEVICE_ID}": ids["percepxion_device_id"]},
         ).first()
         port = (
             ConsoleServerPort.objects.filter(device=device, name=name).first() if device else None

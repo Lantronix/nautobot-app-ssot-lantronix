@@ -57,6 +57,37 @@ def test_sysconfig_resolves_exact_type():
     assert client.tenant_ids == [("jobs", ORG), ("cli", ORG)]
 
 
+@pytest.mark.parametrize("failing", ["latest_sysconfig_jobs", "cli_output"])
+def test_unreadable_sysconfig_falls_back_to_the_model_rule(failing, caplog):
+    from nautobot_ssot_lantronix.percepxion.client import PercepxionUnavailable
+
+    client = FakeClient([device()], [], sysconfig={"dev-0001": SYSCONFIG})
+
+    def refuse(*args, **kwargs):
+        raise PercepxionUnavailable("POST /v1/telemetry/result/search returned HTTP 400")
+
+    setattr(client, failing, refuse)
+    with caplog.at_level(logging.WARNING):
+        dev = load(client, RULES).get(LantronixDevice, {"percepxion_device_id": "dev-0001"})
+    assert dev.device_type_slug == "lantronix-slc9016-16e"
+    assert "show sysconfig output unavailable for dev-0001" in caplog.text
+
+
+def test_ipv6_management_address_is_left_out_so_the_device_still_syncs():
+    from dataclasses import replace
+
+    v6 = replace(device(), ip="2001:db8::10")
+    dev = load(FakeClient([v6], []), RULES).get(
+        LantronixDevice, {"percepxion_device_id": "dev-0001"}
+    )
+    assert dev.mgmt_ip == ""
+    v4 = replace(device(), ip="192.0.2.10")
+    dev = load(FakeClient([v4], []), RULES).get(
+        LantronixDevice, {"percepxion_device_id": "dev-0001"}
+    )
+    assert dev.mgmt_ip == "192.0.2.10"
+
+
 def test_model_rule_resolves_type():
     rules = {("SLC9016", 16, 0): "lantronix-slc9016-16e"}
     dev = load(FakeClient([device()], []), rules).get(

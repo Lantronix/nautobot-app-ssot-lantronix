@@ -34,9 +34,9 @@ def safe_name(value: object) -> str | None:
 
 
 def clean_text(value: object, max_len: int) -> str:
-    """Return display-safe text: no control or bidi characters, single spaces, truncated.
+    """Return display-safe text: no control, bidi or invisible format characters.
 
-    Control characters become spaces, bidi overrides and isolates are removed,
+    Control characters become spaces, bidi and other format characters are removed,
     whitespace runs collapse to one space, and the result is cut to ``max_len``.
     None (or any non-string) gives an empty string; never raises.
     """
@@ -49,8 +49,8 @@ def clean_text(value: object, max_len: int) -> str:
             return ""
     chars = []
     for ch in value:
-        if ch in _BIDI:
-            continue
+        if ch in _BIDI or unicodedata.category(ch) == "Cf":
+            continue  # bidi controls, zero-width and other invisible format characters
         if unicodedata.category(ch) == "Cc":
             chars.append(" ")
         else:

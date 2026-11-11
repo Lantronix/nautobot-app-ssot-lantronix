@@ -15,7 +15,7 @@ from diffsync import Adapter
 from diffsync.exceptions import ObjectAlreadyExists
 
 from ..constants import DESCRIPTION_MAX, FACT_MAX, LABEL_MAX
-from ..percepxion.client import PercepxionUnavailable
+from ..percepxion.client import PartialData, PercepxionUnavailable
 from ..percepxion.resolver import (
     emg_sku,
     is_default_port_name,
@@ -31,6 +31,13 @@ STATE_MAX = 30
 # Nautobot renders job log messages as Markdown, so a device-reported model is cut down to
 # characters that can't form a link or an image.
 _NOT_LOG_SAFE = re.compile(r"[^A-Za-z0-9 ._/+-]")
+
+
+def _ipv4(value: object) -> str:
+    """The management address if it's IPv4, else empty. The custom field that holds it, and
+    the Open console link built from it, take IPv4 only; an IPv6 value would fail the save."""
+    ip = safe_ip(value)
+    return ip if ip and ":" not in ip else ""
 
 
 def _model_text(model: object) -> str:
@@ -55,12 +62,20 @@ class PercepxionAdapter(Adapter):
         # A project_admin session gets HTTP 400 on job and telemetry searches without
         # tenant_id; tenant_user sessions accept it too.
         org = self.config.organization_id
-        if self._sysconfig_jobs is None:
-            self._sysconfig_jobs = self.client.latest_sysconfig_jobs(org)
-        job = self._sysconfig_jobs.get(pxid)
-        if not job:
+        try:
+            if self._sysconfig_jobs is None:
+                self._sysconfig_jobs = self.client.latest_sysconfig_jobs(org)
+            job = self._sysconfig_jobs.get(pxid)
+            if not job:
+                return None
+            return sku_from_sysconfig(parse_sysconfig(self.client.cli_output(job[0], pxid, org)))
+        except (PercepxionUnavailable, PartialData) as exc:
+            # One unreadable `show sysconfig` result must not stop the whole sync: fall back
+            # to the model rules. A failed job search isn't retried for every device.
+            if self._sysconfig_jobs is None:
+                self._sysconfig_jobs = {}
+            self.job.logger.warning(f"Stored show sysconfig output unavailable for {pxid}: {exc}")
             return None
-        return sku_from_sysconfig(parse_sysconfig(self.client.cli_output(job[0], pxid, org)))
 
     def resolve_type(self, dev) -> tuple[str | None, list[str]]:
         emg = emg_sku(dev.model)
@@ -127,7 +142,7 @@ class PercepxionAdapter(Adapter):
                     percepxion_device_id=pxid,
                     name=name,
                     serial=serial,
-                    mgmt_ip=safe_ip(dev.ip) or "",
+                    mgmt_ip=_ipv4(dev.ip),
                     firmware=clean_text(dev.firmware, 32),
                     device_type_slug=slug,
                 )

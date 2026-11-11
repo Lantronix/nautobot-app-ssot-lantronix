@@ -5,7 +5,9 @@ from unittest import mock
 from nautobot.core.testing import TransactionTestCase, create_job_result_and_run_job
 from nautobot.extras.choices import JobResultStatusChoices
 
+from nautobot_ssot_lantronix.jobs import PercepxionDataSource
 from nautobot_ssot_lantronix.percepxion.client import AuthError, PercepxionUnavailable
+from nautobot_ssot_lantronix.tests.fakes import cfg
 
 MODULE = "nautobot_ssot_lantronix.jobs"
 JOB = "PercepxionDataSource"
@@ -13,7 +15,11 @@ SECRET = "sup3r-secret-pw"
 
 
 def run_failing(error):
-    with mock.patch(f"{MODULE}.PercepxionClient") as client:
+    # Settings come from the test, not PERCEPXION_* in the environment.
+    config = mock.patch.object(
+        PercepxionDataSource, "source_config", new_callable=mock.PropertyMock, return_value=cfg()
+    )
+    with config, mock.patch(f"{MODULE}.PercepxionClient") as client:
         client.return_value.login.side_effect = error
         return create_job_result_and_run_job(MODULE, JOB, dryrun=True)
 

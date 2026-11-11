@@ -170,6 +170,17 @@ PLUGINS_CONFIG["nautobot_plugin_nornir"] = {
 
 Backups use the console server's own configuration export and need a Netmiko release that includes the `lantronix_itmgos` driver. Every password, community and key is replaced with `<secret hidden>`, and a backup that can't be proven fully masked is refused rather than saved.
 
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| Job isn't listed or can't run | **Jobs > Jobs**: enable **Percepxion to Nautobot** after installing or upgrading the app |
+| Job stays pending | The Celery worker isn't running |
+| Job shows **Failed** and you need the reason | The **Sync failed** line in the job result's log, or the `nautobot_ssot_lantronix.sync` line in the worker log (`docker compose logs worker`). The job result's traceback has the full detail. |
+| Job fails with a login error | `PERCEPXION_USERNAME` and `PERCEPXION_PASSWORD`. Fix them and restart Nautobot and the worker. |
+| Job fails with "Percepxion read failed" and an HTTP status | The account needs the **tenant_user** role in `PERCEPXION_ORG_ID`. Check the organization ID matches the one in Percepxion. |
+| Device missing after a sync | The job log names each skipped device and why: ambiguous model, device type not imported, a duplicate name, or a conflict with an existing Nautobot device. Devices outside the configured organization are counted, not named. |
+
 ## Support
 
 - Bugs and feature requests: [GitHub Issues](https://github.com/Lantronix/nautobot-app-ssot-lantronix/issues). Include the app, Nautobot and nautobot-ssot versions, and the job log.

@@ -11,6 +11,7 @@ from nautobot_ssot_lantronix.percepxion.records import PxDevice
 from nautobot_ssot_lantronix.percepxion.telemetry import parse_port_states
 from nautobot_ssot_lantronix.tests.fakes import (
     FIXTURE,
+    ORG,
     RULES,
     SYSCONFIG,
     FakeClient,
@@ -42,6 +43,8 @@ def test_sysconfig_resolves_exact_type():
     client = FakeClient([device(model="SLC9032", usb=16)], [], sysconfig={"dev-0001": SYSCONFIG})
     dev = load(client).get(LantronixDevice, {"percepxion_device_id": "dev-0001"})
     assert dev.device_type_slug == "lantronix-slc9016-16u-16e"
+    # project_admin sessions get HTTP 400 on these searches without tenant_id.
+    assert client.tenant_ids == [("jobs", ORG), ("cli", ORG)]
 
 
 def test_model_rule_resolves_type():

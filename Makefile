@@ -12,7 +12,9 @@ test:
 	$(PY) -m pytest -q
 
 test-nautobot:
-	$(COMPOSE) exec nautobot nautobot-server test --keepdb --noinput $(NAUTOBOT_TESTS)
+	# No --keepdb: test_job_failure is a TransactionTestCase, which flushes Nautobot's built-in
+	# statuses out of a kept database and breaks the next run.
+	$(COMPOSE) exec nautobot nautobot-server test --noinput $(NAUTOBOT_TESTS)
 
 lint:
 	$(VENV)/bin/ruff check nautobot_ssot_lantronix && $(VENV)/bin/ruff format --check nautobot_ssot_lantronix

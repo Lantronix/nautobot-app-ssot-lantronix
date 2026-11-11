@@ -39,6 +39,16 @@ def test_ambiguous_model_skipped_and_logged(caplog):
     assert "ambiguous model" in caplog.text and "show sysconfig" in caplog.text
 
 
+def test_model_in_the_job_log_cannot_carry_markdown(caplog):
+    # Nautobot renders job log messages as Markdown; an image or link must not survive.
+    hostile = device(model="![](https://evil.example/p)")
+    with caplog.at_level(logging.WARNING):
+        load(FakeClient([hostile], []))
+    assert "no Lantronix device type for model" in caplog.text
+    for char in "![]()":
+        assert char not in caplog.text.split("for model", 1)[1]
+
+
 def test_sysconfig_resolves_exact_type():
     client = FakeClient([device(model="SLC9032", usb=16)], [], sysconfig={"dev-0001": SYSCONFIG})
     dev = load(client).get(LantronixDevice, {"percepxion_device_id": "dev-0001"})

@@ -8,6 +8,7 @@ out of the diff.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 
 from diffsync import Adapter
@@ -27,6 +28,13 @@ from ..sanitize import clean_text, safe_id, safe_ip, safe_name, safe_serial
 from .models import LantronixConsolePort, LantronixDevice
 
 STATE_MAX = 30
+# Nautobot renders job log messages as Markdown, so a device-reported model is cut down to
+# characters that can't form a link or an image.
+_NOT_LOG_SAFE = re.compile(r"[^A-Za-z0-9 ._/+-]")
+
+
+def _model_text(model: object) -> str:
+    return _NOT_LOG_SAFE.sub("", clean_text(model, 40))
 
 
 class PercepxionAdapter(Adapter):
@@ -104,14 +112,14 @@ class PercepxionAdapter(Adapter):
             if not slug:
                 if candidates:
                     log.warning(
-                        f"Skipped {name}: ambiguous model {clean_text(dev.model, 40)} (could be "
+                        f"Skipped {name}: ambiguous model {_model_text(dev.model)} (could be "
                         f"{', '.join(candidates)}). Run `show sysconfig` on it from Percepxion, "
                         "or add a model rule."
                     )
                 else:
                     log.warning(
                         f"Skipped {name}: no Lantronix device type for model "
-                        f"{clean_text(dev.model, 40)}"
+                        f"{_model_text(dev.model)}"
                     )
                 continue
             self.add(

@@ -25,6 +25,8 @@ from .models import LantronixConsolePort, LantronixDevice
 
 _PORT = re.compile(r"^Port-(\d{1,3})$")
 
+_UNSET = object()
+
 
 class NautobotAdapter(Adapter):
     device = LantronixDevice
@@ -36,6 +38,7 @@ class NautobotAdapter(Adapter):
         self.job = job
         self.sync = sync
         self.config = config
+        self._scope_pks = _UNSET  # resolved on first use, once per run
 
     # -- load ----------------------------------------------------------------------------------
 
@@ -114,6 +117,13 @@ class NautobotAdapter(Adapter):
             if reason:
                 log.warning(f"Conflict: Nautobot device {dev.name} left unchanged ({reason})")
                 return None
+            if not self._in_adoption_scope(dev):
+                log.warning(
+                    f"Not adopting {dev.name}: it matches a Percepxion device but is in location "
+                    f"{dev.location.name}, outside adoption_locations"
+                )
+                return None
+            previous = dev.name
             dev._custom_field_data[CF_DEVICE_ID] = pxid
             dev._custom_field_data[CF_MGMT_IP] = source.mgmt_ip or None
             dev._custom_field_data[CF_FIRMWARE] = source.firmware or None
@@ -123,7 +133,8 @@ class NautobotAdapter(Adapter):
             if dev.platform is None:
                 dev.platform = platform
             dev.validated_save()
-            log.info(f"Linked existing device {name} to Percepxion")
+            renamed = f" (was {previous})" if previous != name else ""
+            log.info(f"Linked existing device {name}{renamed} to Percepxion")
             return dev
 
         model = slug_to_model(source.device_type_slug) if source else ""
@@ -160,6 +171,37 @@ class NautobotAdapter(Adapter):
         dev._custom_field_data[CF_FIRMWARE] = source.firmware or None
         dev.validated_save()
         return dev
+
+    def _adoption_scope(self) -> set | None:
+        """Primary keys of the locations adoption is allowed in; None means any location.
+
+        Location names are unique only under their parent, so each configured name must
+        match exactly one location. A name that matches none or several allows nothing.
+        """
+        from nautobot.dcim.models import Location
+
+        names = self.config.adoption_locations or (self.config.default_location,)
+        if "*" in names:
+            return None
+        pks = set()
+        for name in names:
+            found = list(Location.objects.filter(name=name).values_list("pk", flat=True)[:2])
+            if len(found) == 1:
+                pks.add(found[0])
+            elif found:
+                self.job.logger.warning(
+                    f"adoption_locations: more than one location is named {name}; "
+                    "no device is adopted there until the name is unique"
+                )
+        return pks
+
+    def _in_adoption_scope(self, dev) -> bool:
+        """True if the device sits in, or under, a location adoption is allowed in."""
+        if self._scope_pks is _UNSET:
+            self._scope_pks = self._adoption_scope()
+        if self._scope_pks is None:
+            return True
+        return any(loc.pk in self._scope_pks for loc in dev.location.ancestors(include_self=True))
 
     @staticmethod
     def _guard(dev, serial, platform) -> str | None:

@@ -55,8 +55,9 @@ class Job:
     logger = logging.getLogger("test")
 
 
-def cfg(rules=None):
+def cfg(rules=None, adoption_locations=()):
     return SourceConfig(
+        adoption_locations=adoption_locations,
         url="https://px.example",
         username="u",
         password="p",

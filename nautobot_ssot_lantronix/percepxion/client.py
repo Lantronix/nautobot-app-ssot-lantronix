@@ -1,4 +1,4 @@
-# Copied from netbox-lantronix 8d3a07f; keep in sync until the shared package exists.
+# Shared with netbox-lantronix: keep the two copies identical until the shared package exists.
 """Read-only Percepxion API client. No Nautobot, NetBox or Django imports.
 
 Every request goes through ``PercepxionClient._request``, which refuses any (method, path)
@@ -9,7 +9,6 @@ is on by default.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Iterator
 from datetime import datetime
 from typing import Any
@@ -46,8 +45,6 @@ MAX_PAGES = 10_000  # guard against a server that never returns a short page
 ITM_DEV_TYPE = "ltrx_itm"
 SYSCONFIG_OPERATION = "show sysconfig"
 COMPLETED = "Completed"
-
-log = logging.getLogger(__name__)
 
 
 class PercepxionError(Exception):
@@ -93,7 +90,6 @@ class PercepxionClient:
         self.url = url.rstrip("/")
         self._username = username
         self._password = password
-        self.verify = verify
         self._session = requests.Session()
         self._session.verify = ca_bundle if ca_bundle else verify
         if proxy:

@@ -20,7 +20,8 @@ Repository = "https://github.com/Lantronix/nautobot-app-ssot-lantronix"
 Changelog = "https://github.com/Lantronix/nautobot-app-ssot-lantronix/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6"]
+# nornir-nautobot: the Golden Config dispatcher's base class, so its tests run.
+dev = ["pytest>=8", "ruff>=0.6", "nornir-nautobot>=4"]
 # Console paths in ServiceNow; core installs don't need it.
 servicenow = ["nautobot-ssot[servicenow]>=4.8,<5"]
 

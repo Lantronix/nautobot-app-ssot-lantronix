@@ -119,7 +119,8 @@ class Obj:
 
 
 def test_dispatcher_runs_the_export_and_answers_the_prompt():
-    dispatcher = pytest.importorskip("nautobot_ssot_lantronix.golden_config.dispatcher")
+    from nautobot_ssot_lantronix.golden_config import dispatcher
+
     first = (
         "The configuration will be output (including passwords in cleartext).\n"
         "Do you want to continue? [no] "
@@ -136,8 +137,9 @@ def test_dispatcher_runs_the_export_and_answers_the_prompt():
 
 
 def test_dispatcher_refuses_an_empty_export():
-    dispatcher = pytest.importorskip("nautobot_ssot_lantronix.golden_config.dispatcher")
     from nornir_nautobot.exceptions import NornirNautobotException
+
+    from nautobot_ssot_lantronix.golden_config import dispatcher
 
     connection = FakeConnection(["Do you want to continue? [no] ", "yes\n[SLC-A]> "])
     with pytest.raises(NornirNautobotException):

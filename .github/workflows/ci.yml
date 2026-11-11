@@ -34,6 +34,8 @@ jobs:
           ruff format --check nautobot_ssot_lantronix
       - name: Tests that need no Nautobot
         run: pytest -q
+      - name: Release script tests
+        run: node --test scripts/release-pr.test.mjs
 
   nautobot:
     name: Nautobot ${{ matrix.nautobot }}

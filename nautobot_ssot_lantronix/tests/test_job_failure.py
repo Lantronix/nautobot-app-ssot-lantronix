@@ -7,7 +7,7 @@ from nautobot.extras.choices import JobResultStatusChoices
 
 from nautobot_ssot_lantronix.jobs import PercepxionDataSource
 from nautobot_ssot_lantronix.percepxion.client import AuthError, PercepxionUnavailable
-from nautobot_ssot_lantronix.tests.fakes import cfg
+from nautobot_ssot_lantronix.tests.fakes import RULES, FakeClient, cfg, device, port
 
 MODULE = "nautobot_ssot_lantronix.jobs"
 JOB = "PercepxionDataSource"
@@ -68,3 +68,67 @@ class JobFailureLoggingTests(TransactionTestCase):
             )
         entries = list(result.job_log_entries.values_list("message", flat=True))
         self.assertTrue(any("TLS certificate verification is off" in m for m in entries))
+
+
+class JobRunTests(TransactionTestCase):
+    """The whole job through Nautobot's job runner, with a fake Percepxion."""
+
+    databases = ("default", "job_logs")
+
+    def setUp(self):
+        super().setUp()
+        from django.contrib.contenttypes.models import ContentType
+        from nautobot.dcim.models import (
+            ConsoleServerPortTemplate,
+            Device,
+            DeviceType,
+            Location,
+            LocationType,
+            Manufacturer,
+        )
+        from nautobot.extras.models import Status
+
+        lantronix = Manufacturer.objects.create(name="Lantronix")
+        dt = DeviceType.objects.create(manufacturer=lantronix, model="SLC9016-16E")
+        for n in range(1, 17):
+            ConsoleServerPortTemplate.objects.create(device_type=dt, name=f"Port-{n:02d}")
+        site = LocationType.objects.create(name="Site")
+        site.content_types.add(ContentType.objects.get_for_model(Device))
+        active = Status.objects.get(name="Active")
+        active.content_types.add(ContentType.objects.get_for_model(Device))
+        Location.objects.create(name="Lab", location_type=site, status=active)
+
+    def run_job(self, dryrun):
+        fake = FakeClient([device()], [port(1, name="SLC-B")])
+        config = mock.patch.object(
+            PercepxionDataSource,
+            "source_config",
+            new_callable=mock.PropertyMock,
+            return_value=cfg(RULES),
+        )
+        with config, mock.patch(f"{MODULE}.PercepxionClient", return_value=fake):
+            result = create_job_result_and_run_job(MODULE, JOB, dryrun=dryrun)
+        return result, fake
+
+    def test_dry_run_writes_nothing_and_a_real_run_creates_the_device(self):
+        from nautobot.dcim.models import ConsoleServerPort, Device
+        from nautobot.extras.models import CustomLink
+
+        result, fake = self.run_job(dryrun=True)
+        self.assertEqual(result.status, JobResultStatusChoices.STATUS_SUCCESS, result.traceback)
+        self.assertFalse(Device.objects.filter(name="SLC-A").exists())
+        self.assertFalse(CustomLink.objects.filter(name="Lantronix: Open console").exists())
+        self.assertEqual(fake.logouts, 1)
+
+        result, fake = self.run_job(dryrun=False)
+        self.assertEqual(result.status, JobResultStatusChoices.STATUS_SUCCESS, result.traceback)
+        dev = Device.objects.get(name="SLC-A")
+        self.assertEqual(dev.cf["percepxion_device_id"], "dev-0001")
+        self.assertEqual(ConsoleServerPort.objects.get(device=dev, name="Port-01").label, "SLC-B")
+        self.assertTrue(CustomLink.objects.filter(name="Lantronix: Open console").exists())
+        self.assertEqual(fake.logouts, 1)
+
+        # A second real run finds nothing to change.
+        result, _ = self.run_job(dryrun=False)
+        self.assertEqual(result.status, JobResultStatusChoices.STATUS_SUCCESS, result.traceback)
+        self.assertEqual(Device.objects.count(), 1)

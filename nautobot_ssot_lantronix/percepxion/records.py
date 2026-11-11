@@ -1,4 +1,4 @@
-# Copied from netbox-lantronix 8d3a07f; keep in sync until the shared package exists.
+# Shared with netbox-lantronix: keep the two copies identical until the shared package exists.
 """Plain records read from Percepxion. No Nautobot, NetBox or Django imports.
 
 String fields are kept raw; sanitizing happens in the sync planner.

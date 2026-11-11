@@ -1,4 +1,4 @@
-# Copied from netbox-lantronix 8d3a07f; keep in sync until the shared package exists.
+# Shared with netbox-lantronix: keep the two copies identical until the shared package exists.
 """Per-port attached-device state from Percepxion's device telemetry view.
 
 Port search reports stale connection status and keeps a previously cabled device's facts on a

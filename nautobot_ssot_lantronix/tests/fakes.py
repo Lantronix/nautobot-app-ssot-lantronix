@@ -30,6 +30,13 @@ class FakeClient:
         self.state_error = state_error
         self.sysconfig = sysconfig or {}
         self.tenant_ids = []
+        self.logouts = 0
+
+    def login(self):
+        pass
+
+    def logout(self):
+        self.logouts += 1
 
     def iter_devices(self):
         return iter(self.devices)

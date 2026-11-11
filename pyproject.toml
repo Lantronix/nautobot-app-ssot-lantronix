@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nautobot-app-ssot-lantronix"
-version = "0.4.0"
+version = "0.4.1"
 description = "Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion."
 readme = "README.md"
 license = "Apache-2.0"

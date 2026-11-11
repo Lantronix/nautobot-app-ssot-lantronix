@@ -242,7 +242,12 @@ def test_site_secrets_masked(command):
     "config,reason",
     [
         ("set snmp rocommunity 'pub'lic9'\n", "part of a secret is left"),
-        ("set remoteusers password bob enc $6$abcdefgh\n", "enc has a value"),
+        ("set remoteusers password bob enc $6$abcdefgh\n", "password has a value"),
+        # The user-name exemption is for the one known command, not any "... enc" line.
+        ("set radius secret Sup3rValue enc on\n", "secret has a value"),
+        # A quoted or punctuated setting name still counts.
+        ("set vpn 'psk' Sup3rValue\n", "psk has a value"),
+        ("set x <key Sup3rValue\n", "key has a value"),
         ("set radius server 1 host 192.0.2.1 secret Sup3rValue port 1812\n", "secret has a value"),
         ("set vpn psk Sup3rValue\n", "psk has a value"),
         # One masked value on a line doesn't excuse another secret on the same line.

@@ -72,9 +72,8 @@ _PROMPTED_LOOSE = re.compile(r"^\s*(?:set|admin)\b.*(?:password|phrase|secret|ke
 
 # A setting whose name says it holds a secret: "bindpassword", "v3phrase", "chapsecret",
 # "rocommunity", "key", and "enc" (the hash that follows a local user's password).
-_SECRET_NAME = re.compile(
-    r"[A-Za-z0-9_+.-]*(?:password|passphrase|phrase|secret|community|psk|key)", re.I
-)
+_SECRET_NAME = re.compile(r"(?:password|passphrase|phrase|secret|community|psk|key)$", re.I)
+_LOCAL_USER_HASH = re.compile(r"^set localusers password \S+ enc ")
 # Values that follow such a name without being a secret: on/off settings like
 # "requiresshpublickey disable" and "changepassword enable".
 _NOT_A_SECRET = frozenset({"enable", "disable", "enabled", "disabled", "none", "''", '""'})
@@ -83,8 +82,10 @@ _MASK_RESIDUE = re.compile(re.escape(MASK) + r"['\"]?[^\s'\"]")
 
 
 def _names_secret(token: str) -> bool:
-    # A whole word, so the mask's own "<secret" isn't taken for a setting.
-    return token.lower() == "enc" or bool(_SECRET_NAME.fullmatch(token))
+    bare = token.strip("'\"")
+    if bare == MASK.split()[0]:
+        return False  # the mask's own "<secret" is a value, not a setting
+    return bare.lower() == "enc" or bool(_SECRET_NAME.search(bare))
 
 
 def _is_prompted(line: str) -> bool:
@@ -194,8 +195,9 @@ def _pair_is_safe(line: str, tokens: list[str], i: int, value: str) -> bool:
         and tokens[i + 2].startswith(MASK.split()[1])
     ):
         return True  # this pair's own value is the mask
-    if tokens[i + 2 : i + 3] == ["enc"]:
-        return True  # "password <user> enc <hash>": a user name; the hash is the next pair
+    if i == 2 and tokens[2] == "password" and _LOCAL_USER_HASH.match(line):
+        return True  # "set localusers password <user> enc <hash>": a user name; the hash
+        # is the next pair and is judged there
     # "set site dialoutpassword <site>": the site's name; the secret is on the next two lines.
     return bool(_PROMPTED.match(line)) and i == 2 and tokens[1] == "site"
 

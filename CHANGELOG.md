@@ -4,6 +4,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-11
+
 ### Security
 - A Golden Config backup is refused when it holds a secret in a format the masking rules don't know: a value on the same line as a setting named like a secret, part of a value left after masking, or key material. Before, only prompted secrets were checked and other formats were saved as they were.
 - Each run now revokes its Percepxion refresh token and closes the connection when it has finished reading.
@@ -74,7 +76,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 ### Added
 - First release. Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion, with ServiceNow console paths and Golden Config backups and compliance for SLC devices.
 
-[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.0...v0.3.1

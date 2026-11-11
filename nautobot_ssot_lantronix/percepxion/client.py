@@ -20,7 +20,7 @@ from .records import PxDevice, PxPort
 from .telemetry import PxPortState, parse_port_states
 
 # The app package imports Nautobot, so the version is pinned here rather than imported.
-CLIENT_VERSION = "0.4.1"
+CLIENT_VERSION = "0.5.0"
 USER_AGENT = f"nautobot-app-ssot-lantronix/{CLIENT_VERSION}"
 
 LOGIN_PATH = "/v2/user/login"

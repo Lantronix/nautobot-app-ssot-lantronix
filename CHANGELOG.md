@@ -4,6 +4,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-11
+
 ### Added
 
 - **AOOB console coverage gate** job, which reports which devices have a ready console path through a synced SLC port, with a reason for each device that doesn't, and fails when any device in scope isn't covered. Enable it under **Jobs**; the lantronix.oob `oob_coverage_gate` role runs it before a change.
@@ -80,7 +82,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 ### Added
 - First release. Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion, with ServiceNow console paths and Golden Config backups and compliance for SLC devices.
 
-[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.1...v0.3.2

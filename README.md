@@ -145,7 +145,7 @@ A device the job can't resolve isn't created; the job log names it and the candi
 
 The console server is the source of truth for port labels and descriptions. A label edited by hand in Nautobot is overwritten on the next sync; rename the port on the console server instead. An existing Nautobot device is adopted only when it's a Lantronix device on the Lantronix platform (or none) whose serial matches, or that has no serial and the same name; anything else with the same name is reported and left alone. Adoption links the device and renames it to its Percepxion name, with no approval step, and the job log records the old name.
 
-Adoption is limited to devices in `default_location` or a location under it. To adopt elsewhere, list the location names in `adoption_locations`, or set `["*"]` for any location. A matching device outside those locations is reported in the job log and left alone. Tenants aren't checked, so keep `adoption_locations` to locations whose devices this Percepxion organization should manage.
+Adoption is limited to devices in `default_location` or a location under it. To adopt elsewhere, list the location names in `adoption_locations`, or set `["*"]` for any location. A matching device outside those locations is reported in the job log and left alone. Each name must match exactly one location; if two locations share a name, no device is adopted under that name until you rename one. Tenants aren't checked, so keep `adoption_locations` to locations whose devices this Percepxion organization should manage.
 
 ### Who can run the job
 

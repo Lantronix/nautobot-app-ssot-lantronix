@@ -158,6 +158,32 @@ class SyncTest(TestCase):
                 Location.objects.get(name="Remote").delete()
                 existing.tenant.delete()
 
+    def test_no_adoption_when_a_location_name_is_ambiguous(self):
+        # Location names are unique only under their parent: a second "Lab" elsewhere
+        # must not fall inside the adoption scope by sharing the name.
+        region_type = LocationType.objects.create(name="Region")
+        self.location.location_type.parent = region_type
+        self.location.location_type.save()
+        active = Status.objects.get(name="Active")
+        east = Location.objects.create(name="East", location_type=region_type, status=active)
+        west = Location.objects.create(name="West", location_type=region_type, status=active)
+        Location.objects.filter(pk=self.location.pk).update(parent=east)
+        other_lab = Location.objects.create(
+            name="Lab", location_type=self.location.location_type, parent=west, status=active
+        )
+        existing = Device.objects.create(
+            name="SLC-A",
+            device_type=self.dt,
+            location=other_lab,
+            role=Role.objects.get(name="Console Server"),
+            status=active,
+        )
+        with self.assertLogs("test", "WARNING") as logs:
+            self.sync()
+        existing.refresh_from_db()
+        self.assertIsNone(existing.cf.get("percepxion_device_id"))
+        self.assertTrue(any("more than one location is named Lab" in m for m in logs.output))
+
     def test_adoption_under_a_child_of_the_default_location(self):
         child_type = LocationType.objects.create(name="Room", parent=self.location.location_type)
         child_type.content_types.add(ContentType.objects.get_for_model(Device))

@@ -25,6 +25,8 @@ from .models import LantronixConsolePort, LantronixDevice
 
 _PORT = re.compile(r"^Port-(\d{1,3})$")
 
+_UNSET = object()
+
 
 class NautobotAdapter(Adapter):
     device = LantronixDevice
@@ -36,6 +38,7 @@ class NautobotAdapter(Adapter):
         self.job = job
         self.sync = sync
         self.config = config
+        self._scope_pks = _UNSET  # resolved on first use, once per run
 
     # -- load ----------------------------------------------------------------------------------
 
@@ -169,12 +172,36 @@ class NautobotAdapter(Adapter):
         dev.validated_save()
         return dev
 
+    def _adoption_scope(self) -> set | None:
+        """Primary keys of the locations adoption is allowed in; None means any location.
+
+        Location names are unique only under their parent, so each configured name must
+        match exactly one location. A name that matches none or several allows nothing.
+        """
+        from nautobot.dcim.models import Location
+
+        names = self.config.adoption_locations or (self.config.default_location,)
+        if "*" in names:
+            return None
+        pks = set()
+        for name in names:
+            found = list(Location.objects.filter(name=name).values_list("pk", flat=True)[:2])
+            if len(found) == 1:
+                pks.add(found[0])
+            elif found:
+                self.job.logger.warning(
+                    f"adoption_locations: more than one location is named {name}; "
+                    "no device is adopted there until the name is unique"
+                )
+        return pks
+
     def _in_adoption_scope(self, dev) -> bool:
         """True if the device sits in, or under, a location adoption is allowed in."""
-        scope = self.config.adoption_locations or (self.config.default_location,)
-        if "*" in scope:
+        if self._scope_pks is _UNSET:
+            self._scope_pks = self._adoption_scope()
+        if self._scope_pks is None:
             return True
-        return any(loc.name in scope for loc in dev.location.ancestors(include_self=True))
+        return any(loc.pk in self._scope_pks for loc in dev.location.ancestors(include_self=True))
 
     @staticmethod
     def _guard(dev, serial, platform) -> str | None:

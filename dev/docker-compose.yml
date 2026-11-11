@@ -23,7 +23,8 @@ x-nautobot: &nautobot
 services:
   nautobot:
     <<: *nautobot
-    ports: ["8082:8080"]
+    # Loopback unless NAUTOBOT_DEV_BIND says otherwise (0.0.0.0 on a lab host you reach remotely).
+    ports: ["${NAUTOBOT_DEV_BIND:-127.0.0.1}:8082:8080"]
     environment:
       <<: *env
       NAUTOBOT_CREATE_SUPERUSER: "true"

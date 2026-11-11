@@ -271,6 +271,62 @@ class SyncTest(TestCase):
         self.assertEqual(p.cf["lx_attached_model"], "WS-C3560CG-8TC-S")
         self.assertTrue(p.cf["lx_attached_last_seen"])
 
+    def render_link(self, port):
+        from nautobot.core.utils.data import render_jinja2
+        from nautobot.extras.models import CustomLink
+
+        link = CustomLink.objects.get(name="Lantronix: Open console")
+        context = {"obj": port}
+        return render_jinja2(link.text, context).strip(), render_jinja2(link.target_url, context)
+
+    def test_open_console_link_only_on_numbered_ports_and_brackets_ipv6(self):
+        self.sync()
+        dev = Device.objects.get(name="SLC-A")
+        dev._custom_field_data["lx_mgmt_ip"] = "192.0.2.10"
+        dev.validated_save()
+        port7 = ConsoleServerPort.objects.get(device=dev, name="Port-07")
+        self.assertEqual(self.render_link(port7), ("Open console", "ssh://192.0.2.10:3007"))
+        # A port that isn't one of the unit's numbered ports gets no button.
+        for name in ("ttyS12", "Port-", "Port-x1", "Console"):
+            other = ConsoleServerPort.objects.create(device=dev, name=name)
+            self.assertEqual(self.render_link(other)[0], "", name)
+        # An IPv6 primary address is bracketed, so the port isn't read as part of it.
+        from nautobot.dcim.models import Interface
+        from nautobot.ipam.models import IPAddress, Namespace, Prefix
+
+        active = Status.objects.get(name="Active")
+        for model in (Prefix, IPAddress, Interface):
+            active.content_types.add(ContentType.objects.get_for_model(model))
+        Prefix.objects.create(
+            prefix="2001:db8::/64", namespace=Namespace.objects.first(), status=active
+        )
+        ip = IPAddress.objects.create(address="2001:db8::10/64", status=active)
+        iface = Interface.objects.create(device=dev, name="eth1", type="1000base-t", status=active)
+        iface.ip_addresses.add(ip)
+        dev.primary_ip6 = ip
+        dev.validated_save()
+        port7.refresh_from_db()
+        self.assertEqual(self.render_link(port7)[1], "ssh://[2001:db8::10]:3007")
+
+    def test_bootstrap_keeps_admin_changes_to_the_link_but_owns_its_url(self):
+        from nautobot.extras.models import CustomLink, ObjectChange
+
+        link = CustomLink.objects.get(name="Lantronix: Open console")
+        good_url = link.target_url
+        link.weight, link.button_class, link.target_url = 250, "success", "ssh://evil.example:22"
+        link.validated_save()
+        ensure_objects(cfg(), logging.getLogger("test"))
+        link.refresh_from_db()
+        self.assertEqual(
+            (link.weight, link.button_class, link.target_url), (250, "success", good_url)
+        )
+        # A second run with nothing to correct writes nothing.
+        before = link.last_updated
+        changes = ObjectChange.objects.count()
+        ensure_objects(cfg(), logging.getLogger("test"))
+        link.refresh_from_db()
+        self.assertEqual((link.last_updated, ObjectChange.objects.count()), (before, changes))
+
     def test_management_ip_field_rejects_hostnames(self):
         from nautobot.extras.models import CustomField
 

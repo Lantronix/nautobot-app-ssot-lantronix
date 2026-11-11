@@ -15,6 +15,7 @@ from .constants import (
     PORT_CF_LABELS,
 )
 
+LINK_NAME = "Lantronix: Open console"
 _OCTET = r"(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
 IPV4_RE = rf"^({_OCTET}\.){{3}}{_OCTET}$"
 
@@ -64,24 +65,43 @@ def ensure_objects(config, logger) -> None:
         if created:
             logger.info(f"Created custom field {key}")
 
-    # SSH to the SLC's console port from the port page. The text renders empty (so
-    # Nautobot hides the button) unless the device is synced and has a primary IP or a
-    # Percepxion-reported management IP; the primary IP wins.
-    CustomLink.objects.update_or_create(
-        name="Lantronix: Open console",
+    # SSH to the SLC's console port from the port page. The text renders empty (so Nautobot
+    # hides the button) unless the device is synced, the port is one of the unit's numbered
+    # Port-NN ports and there is an address: the primary IP, else the Percepxion-reported one.
+    text, target_url = console_link(config.ssh_base_port)
+    link, created = CustomLink.objects.get_or_create(
+        name=LINK_NAME,
         defaults={
             "content_type": port_ct,
-            "text": (
-                "{% if obj.device.cf.percepxion_device_id and "
-                "(obj.device.primary_ip or obj.device.cf.lx_mgmt_ip) %}Open console{% endif %}"
-            ),
-            "target_url": (
-                "ssh://{{ obj.device.primary_ip.host if obj.device.primary_ip "
-                "else obj.device.cf.lx_mgmt_ip }}:"
-                f"{{{{ {config.ssh_base_port} + (obj.name[5:] | int) }}}}"
-            ),
+            "text": text,
+            "target_url": target_url,
             "button_class": "primary",
             "new_window": False,
             "weight": 100,
         },
     )
+    # The app owns what the button opens. Weight, group and style are the admin's to change.
+    if not created and (link.text, link.target_url, link.content_type) != (
+        text,
+        target_url,
+        port_ct,
+    ):
+        link.text, link.target_url, link.content_type = text, target_url, port_ct
+        link.validated_save()
+
+
+def console_link(ssh_base_port: int) -> tuple[str, str]:
+    """Jinja text and URL of the Open console custom link."""
+    numbered = "obj.name[:5] == 'Port-' and (obj.name[5:] | int(-1)) > 0"
+    address = "obj.device.primary_ip or obj.device.cf.lx_mgmt_ip"
+    text = (
+        "{% if obj.device.cf.percepxion_device_id and "
+        f"{numbered} and ({address}) %}}Open console{{% endif %}}"
+    )
+    target_url = (
+        "{% set host = (obj.device.primary_ip.host if obj.device.primary_ip "
+        "else obj.device.cf.lx_mgmt_ip) | string %}"
+        "ssh://{{ '[' ~ host ~ ']' if ':' in host else host }}:"
+        f"{{{{ {int(ssh_base_port)} + (obj.name[5:] | int) }}}}"
+    )
+    return text, target_url

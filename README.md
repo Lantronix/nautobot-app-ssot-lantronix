@@ -107,6 +107,7 @@ The Percepxion endpoint, organization and credentials come only from environment
 | `PERCEPXION_USERNAME`, `PERCEPXION_PASSWORD` | The Percepxion user the job signs in as |
 | `PERCEPXION_ORG_ID` | The Percepxion organization to sync |
 | `PERCEPXION_CA_BUNDLE` | Optional CA bundle for on-premises Percepxion |
+| `PERCEPXION_VERIFY` | Optional. `false` turns TLS certificate checking off; the job log warns on every run. Prefer `PERCEPXION_CA_BUNDLE`. |
 
 ```python
 PLUGINS = ["nautobot_ssot", "nautobot_ssot_lantronix"]
@@ -125,6 +126,8 @@ PLUGINS_CONFIG = {
 ```
 
 A missing setting stops the job with an error that names the setting, never its value.
+
+Each run logs in to Percepxion, reads, then revokes its refresh token and closes the connection. Percepxion keeps the access token it issued valid until that token expires, which the app can't shorten.
 
 ### Device models
 
@@ -155,7 +158,7 @@ The job has a soft time limit of 2 hours and a hard limit 5 minutes later. Chang
 
 ## Open console
 
-The link builds `ssh://<address>:<SSH base port + port number>` from the device's primary IP, or the management address Percepxion reports. Your browser opens it with your SSH client and you sign in to the console server as yourself.
+The link builds `ssh://<address>:<SSH base port + port number>` from the device's primary IP, or the IPv4 management address Percepxion reports. It appears only on the unit's numbered ports (`Port-01` and up). The app keeps the link's text and URL as shipped; its weight, group and button style are yours to change. Your browser opens it with your SSH client and you sign in to the console server as yourself.
 
 On the console server, direct SSH access is off by default on every port. Turn it on for the ports you want to reach, for example `set deviceport port 1-48 sshin enable` (answer `yes` to the confirmation).
 
@@ -177,7 +180,7 @@ PLUGINS_CONFIG["nautobot_plugin_nornir"] = {
 }
 ```
 
-Backups use the console server's own configuration export and need a Netmiko release that includes the `lantronix_itmgos` driver. The dispatcher replaces the secrets it recognizes with `<secret hidden>`: prompted passwords, phrases and keys, SNMP communities, and local user password hashes. A backup whose prompted secrets can't be confirmed masked is refused, not saved. The dispatcher doesn't recognize every secret format a firmware release might add, so check a backup from each firmware version before you widen access to the backup repository.
+Backups use the console server's own configuration export and need a Netmiko release that includes the `lantronix_itmgos` driver. The dispatcher replaces the secrets it recognizes with `<secret hidden>`: prompted passwords, phrases and keys, SNMP communities, and local user password hashes. It then refuses to save the backup if anything still looks like a secret: a prompted secret that isn't masked, a value on the same line as a setting named like a secret, part of a value left behind, or key material. The error names the line and the setting, never the value. If a backup of yours is refused, open an issue with that error line so the format can be added.
 
 ## Troubleshooting
 

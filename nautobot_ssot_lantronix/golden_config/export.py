@@ -70,9 +70,30 @@ _PROMPTED = re.compile(rf"^{_PROMPTED_CMD}$")
 _PROMPTED_LOOSE = re.compile(r"^\s*(?:set|admin)\b.*(?:password|phrase|secret|key)\s*$")
 
 
+# A setting whose name says it holds a secret: "bindpassword", "v3phrase", "chapsecret",
+# "rocommunity", "key", and "enc" (the hash that follows a local user's password).
+_SECRET_NAME = re.compile(r"(?:password|passphrase|phrase|secret|community|psk|key)$", re.I)
+# Values that follow such a name without being a secret: on/off settings like
+# "requiresshpublickey disable" and "changepassword enable".
+_NOT_A_SECRET = frozenset({"enable", "disable", "enabled", "disabled", "none", "''", '""'})
+# A masked value with text stuck to its end: the mask rule stopped short of the whole value.
+_MASK_RESIDUE = re.compile(re.escape(MASK) + r"['\"]?[^\s'\"]")
+
+
+def _names_secret(token: str) -> bool:
+    return token.lower() == "enc" or bool(_SECRET_NAME.search(token))
+
+
 def _is_prompted(line: str) -> bool:
-    """The guard's recognizer: everything the mask rule matches, plus looser variants."""
-    return bool(_PROMPTED.match(line) or _PROMPTED_LOOSE.match(line))
+    """The guard's recognizer: everything the mask rule matches, plus looser variants.
+
+    The last variant is any line that ends in a secret's name, whatever its first word, so
+    a prompted secret under a command the mask rule doesn't know still fails closed.
+    """
+    if _PROMPTED.match(line) or _PROMPTED_LOOSE.match(line):
+        return True
+    tokens = line.split()
+    return len(tokens) > 1 and _names_secret(tokens[-1])
 
 
 class UnmaskedSecretError(ValueError):
@@ -130,6 +151,31 @@ def _assert_masked(config: str, values: list[str]) -> None:
         leaked = value in lines if len(value) < 6 else value in config
         if leaked:
             raise UnmaskedSecretError("a prompted secret value is still present after masking")
+    _assert_no_inline_secret(lines)
+
+
+def _assert_no_inline_secret(lines: list[str]) -> None:
+    """Refuse anything that looks like a secret the rules above didn't mask.
+
+    The rules know the secret formats of the firmware they were written against. A format
+    they don't know must stop the backup, not pass through it: a value on the same line as
+    a secret-named setting, a masked value with part of the original left behind, or key
+    material. Messages name the line and the setting, never the value.
+    """
+    for number, line in enumerate(lines, 1):
+        if "-----BEGIN" in line:
+            raise UnmaskedSecretError(f"line {number}: key or certificate material in the export")
+        if _MASK_RESIDUE.search(line):
+            raise UnmaskedSecretError(f"line {number}: part of a secret is left after masking")
+        if MASK in line or _is_prompted(line):
+            continue  # a format the rules know: masked here, or on the two lines that follow
+        tokens = line.split()
+        for name, value in zip(tokens, tokens[1:], strict=False):
+            if _names_secret(name) and value.lower() not in _NOT_A_SECRET:
+                setting = re.sub(r"\W", "", name)[:32]
+                raise UnmaskedSecretError(
+                    f"line {number}: {setting} has a value the masking rules don't cover"
+                )
 
 
 def clean_export(output: str) -> str:

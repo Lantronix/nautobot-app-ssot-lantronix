@@ -4,6 +4,20 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Security
+- A Golden Config backup is refused when it holds a secret in a format the masking rules don't know: a value on the same line as a setting named like a secret, part of a value left after masking, or key material. Before, only prompted secrets were checked and other formats were saved as they were.
+- Each run now revokes its Percepxion refresh token and closes the connection when it has finished reading.
+- The job log warns on every run when TLS certificate checking is off.
+- Zero-width and other invisible characters are removed from names, labels and attached-device details read from Percepxion.
+- Port details are written only to ports of Lantronix devices.
+
+### Changed
+- The Open console link appears only on the unit's numbered ports and puts brackets around an IPv6 address. A sync corrects the link's text and URL when they differ and no longer resets its weight or button style, or rewrites it on every run.
+
+### Fixed
+- A console server that reports an IPv6 management address now syncs. Before, it was skipped on every run. The address itself isn't stored, because the Open console link takes IPv4.
+- Stored `show sysconfig` output that can't be read no longer stops the sync. The device type falls back to the model rules and the job log names the device.
+
 ## [0.4.0] - 2026-11-11
 
 ### Security

@@ -11,6 +11,7 @@ import pytest
 from nautobot_ssot_lantronix.golden_config.export import (
     EXPORT_COMMAND,
     SECRET_RULES,
+    UnmaskedSecretError,
     clean_export,
     mask_secrets,
 )
@@ -232,3 +233,34 @@ def test_site_secrets_truncated_fail_closed(command):
 def test_site_secrets_masked(command):
     out = mask_secrets(f"{command}\nsite-secret-long\nsite-secret-long\nset ntp enable\n")
     assert "site-secret-long" not in out
+
+
+# -- secret formats the rules don't know must stop the backup -----------------------------------
+
+
+@pytest.mark.parametrize(
+    "config,reason",
+    [
+        ("set snmp rocommunity 'pub'lic9'\n", "part of a secret is left"),
+        ("set remoteusers password bob enc $6$abcdefgh\n", "password has a value"),
+        ("set radius server 1 host 192.0.2.1 secret Sup3rValue port 1812\n", "secret has a value"),
+        ("set vpn psk Sup3rValue\n", "psk has a value"),
+        ("-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n", "key or certificate material"),
+        ("config vpn key\nhunter22\nhunter22\n", "isn't followed by two masked lines"),
+    ],
+)
+def test_unknown_secret_formats_fail_closed(config, reason):
+    with pytest.raises(UnmaskedSecretError, match=reason) as exc:
+        mask_secrets(config)
+    for value in ("lic9", "abcdefgh", "Sup3rValue", "MIIabc", "hunter22"):
+        assert value not in str(exc.value)
+
+
+def test_settings_named_like_secrets_but_holding_none_pass():
+    config = (
+        "set services requiresshpublickey disable\n"
+        "set localusers changepassword enable\n"
+        "set localusers complexpasswords disable\n"
+        "set ntp localserverid 1 keyindex 1 hash disable\n"
+    )
+    assert mask_secrets(config) == config

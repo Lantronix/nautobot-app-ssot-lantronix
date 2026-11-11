@@ -28,6 +28,8 @@ class LantronixSSoTConfig(NautobotAppConfig):
         "default_status": "Active",
         "ssh_base_port": 3000,
         "model_rules": {},
+        # Locations an existing device must be in to be adopted; empty = default_location.
+        "adoption_locations": [],
         # Optional ServiceNow console paths: "attached_device" or "console_server".
         "servicenow_console_link_parent": "attached_device",
     }

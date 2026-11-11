@@ -119,6 +119,7 @@ PLUGINS_CONFIG = {
         "default_status": "Active",
         "ssh_base_port": 3000,             # change if you changed it on your console servers
         "model_rules": {},                 # see Device models
+        # "adoption_locations": ["Main Site"],  # where existing devices may be adopted
     },
 }
 ```
@@ -142,7 +143,15 @@ A device the job can't resolve isn't created; the job log names it and the candi
 | Console server (device) | created with name, type, location, role, platform, serial and the Percepxion device ID; management IP in a custom field, never in IPAM | location, role or type of an existing device |
 | Console server port | label (the port's name on the console server), description (attached device hostname), port state and attached-device custom fields | name, cables, anything else |
 
-The console server is the source of truth for port labels and descriptions. A label edited by hand in Nautobot is overwritten on the next sync; rename the port on the console server instead. An existing Nautobot device is adopted only when it's a Lantronix device on the Lantronix platform (or none) whose serial matches, or that has no serial and the same name; anything else with the same name is reported and left alone.
+The console server is the source of truth for port labels and descriptions. A label edited by hand in Nautobot is overwritten on the next sync; rename the port on the console server instead. An existing Nautobot device is adopted only when it's a Lantronix device on the Lantronix platform (or none) whose serial matches, or that has no serial and the same name; anything else with the same name is reported and left alone. Adoption links the device and renames it to its Percepxion name, with no approval step, and the job log records the old name.
+
+Adoption is limited to devices in `default_location` or a location under it. To adopt elsewhere, list the location names in `adoption_locations`, or set `["*"]` for any location. A matching device outside those locations is reported in the job log and left alone. Tenants aren't checked, so keep `adoption_locations` to locations whose devices this Percepxion organization should manage.
+
+### Who can run the job
+
+Anyone with permission to run **Percepxion to Nautobot** creates and updates console servers and their ports through it, whatever their own object permissions on devices. That is how Nautobot SSoT jobs work. Grant the run permission for this job only to people who should manage that inventory.
+
+The job has a soft time limit of 2 hours and a hard limit 5 minutes later. Change either on the job's edit page under **Jobs > Jobs**.
 
 ## Open console
 
@@ -168,7 +177,7 @@ PLUGINS_CONFIG["nautobot_plugin_nornir"] = {
 }
 ```
 
-Backups use the console server's own configuration export and need a Netmiko release that includes the `lantronix_itmgos` driver. Every password, community and key is replaced with `<secret hidden>`, and a backup that can't be proven fully masked is refused rather than saved.
+Backups use the console server's own configuration export and need a Netmiko release that includes the `lantronix_itmgos` driver. The dispatcher replaces the secrets it recognizes with `<secret hidden>`: prompted passwords, phrases and keys, SNMP communities, and local user password hashes. A backup whose prompted secrets can't be confirmed masked is refused, not saved. The dispatcher doesn't recognize every secret format a firmware release might add, so check a backup from each firmware version before you widen access to the backup repository.
 
 ## Troubleshooting
 
@@ -178,6 +187,9 @@ Backups use the console server's own configuration export and need a Netmiko rel
 | Job stays pending | The Celery worker isn't running |
 | Job shows **Failed** and you need the reason | The **Sync failed** line in the job result's log, or the `nautobot_ssot_lantronix.sync` line in the worker log (`docker compose logs worker`). The job result's traceback has the full detail. |
 | Job fails with a login error | `PERCEPXION_USERNAME` and `PERCEPXION_PASSWORD`. Fix them and restart Nautobot and the worker. |
+| Job fails with "was redirected" | `PERCEPXION_URL` answers with a redirect. The job never follows redirects; use the final address. |
+| Job is stopped partway on a large fleet | The job's time limit. Raise it on the job's edit page. |
+| An existing device isn't adopted | It's outside `adoption_locations`, or the job log gives another reason |
 | Job fails with "Percepxion read failed" and an HTTP status | The account needs the **tenant_user** role in `PERCEPXION_ORG_ID`. Check the organization ID matches the one in Percepxion. |
 | Device missing after a sync | The job log names each skipped device and why: ambiguous model, device type not imported, a duplicate name, or a conflict with an existing Nautobot device. Devices outside the configured organization are counted, not named. |
 

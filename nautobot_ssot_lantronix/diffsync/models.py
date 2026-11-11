@@ -125,7 +125,9 @@ class LantronixConsolePort(DiffSyncModel):
         if port is None:
             return None  # the device type has no such port, or the device wasn't created
         source = adapter.job.source_adapter.get(cls, ids)
-        _write_port(port, {**attrs, "attached_last_seen": source.attached_last_seen})
+        values = {**attrs, "attached_last_seen": source.attached_last_seen}
+        if not _write_port(port, values, adapter.job.logger):
+            return None
         model = super().create(adapter=adapter, ids=ids, attrs=attrs)
         model.pk = port.pk
         return model
@@ -135,14 +137,20 @@ class LantronixConsolePort(DiffSyncModel):
 
         source = self.adapter.job.source_adapter.get(LantronixConsolePort, self.get_unique_id())
         values = {**attrs, "attached_last_seen": source.attached_last_seen}
-        _write_port(ConsoleServerPort.objects.get(pk=self.pk), values)
+        port = ConsoleServerPort.objects.filter(pk=self.pk).first()
+        if port is None:  # removed from Nautobot since the run loaded it
+            return None
+        if not _write_port(port, values, self.adapter.job.logger):
+            return None
         return super().update(attrs)
 
     def delete(self):
         return None
 
 
-def _write_port(port, attrs: dict) -> None:
+def _write_port(port, attrs: dict, log) -> bool:
+    """Write one port. A port Nautobot rejects is skipped with a warning, so one bad port
+    can't stop the run part-way through."""
     if "label" in attrs:
         port.label = attrs["label"]
     if "description" in attrs:
@@ -151,4 +159,11 @@ def _write_port(port, attrs: dict) -> None:
         if attr in attrs:
             value = attrs[attr]
             port._custom_field_data[key] = value if value not in ("",) else None
-    port.validated_save()
+    try:
+        port.validated_save()
+    except ValidationError as exc:
+        log.warning(
+            f"Port {port.name} on {port.device.name}: not saved ({'; '.join(exc.messages)})"
+        )
+        return False
+    return True

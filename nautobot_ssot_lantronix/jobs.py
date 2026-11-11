@@ -37,6 +37,11 @@ class PercepxionDataSource(DataSource):
             "from Percepxion. Read-only toward Percepxion."
         )
         has_sensitive_variables = False
+        # Nautobot's defaults (300 s soft, 600 s hard) are too short for a few hundred
+        # devices: the run reads port state one device at a time. A hard kill lands mid-write.
+        # Both can be overridden on the job's edit page.
+        soft_time_limit = 7200
+        time_limit = 7500
 
     def __init__(self):
         super().__init__()

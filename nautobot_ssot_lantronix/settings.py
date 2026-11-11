@@ -39,6 +39,9 @@ class SourceConfig:
     ca_bundle: str | None = None
     # (MODEL, rj45, usb) -> device-type slug, for SLC 9000 units with no stored sysconfig.
     model_rules: dict[tuple[str, int, int], str] = field(default_factory=dict)
+    # Location names an existing device must be in (or under) to be adopted. Empty means
+    # default_location only; ("*",) means any location.
+    adoption_locations: tuple[str, ...] = ()
 
 
 def _rules(raw: object) -> dict[tuple[str, int, int], str]:
@@ -55,6 +58,14 @@ def _rules(raw: object) -> dict[tuple[str, int, int], str]:
             raise ConfigError(f"model_rules value for {key!r} is not a Lantronix SLC 9000 type")
         rules[(parts[0].upper(), int(parts[1]), int(parts[2]))] = slug
     return rules
+
+
+def _locations(raw: object) -> tuple[str, ...]:
+    if raw in (None, "", [], ()):
+        return ()
+    if not isinstance(raw, (list, tuple)) or not all(isinstance(x, str) and x for x in raw):
+        raise ConfigError("adoption_locations must be a list of location names, or ['*']")
+    return tuple(raw)
 
 
 def load(app_settings: dict, environ: dict | None = None) -> SourceConfig:
@@ -83,4 +94,5 @@ def load(app_settings: dict, environ: dict | None = None) -> SourceConfig:
         verify=verify,
         ca_bundle=str(values["ca_bundle"]) or None,
         model_rules=_rules(app_settings.get("model_rules")),
+        adoption_locations=_locations(app_settings.get("adoption_locations")),
     )

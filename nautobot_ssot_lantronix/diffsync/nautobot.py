@@ -114,6 +114,13 @@ class NautobotAdapter(Adapter):
             if reason:
                 log.warning(f"Conflict: Nautobot device {dev.name} left unchanged ({reason})")
                 return None
+            if not self._in_adoption_scope(dev):
+                log.warning(
+                    f"Not adopting {dev.name}: it matches a Percepxion device but is in location "
+                    f"{dev.location.name}, outside adoption_locations"
+                )
+                return None
+            previous = dev.name
             dev._custom_field_data[CF_DEVICE_ID] = pxid
             dev._custom_field_data[CF_MGMT_IP] = source.mgmt_ip or None
             dev._custom_field_data[CF_FIRMWARE] = source.firmware or None
@@ -123,7 +130,8 @@ class NautobotAdapter(Adapter):
             if dev.platform is None:
                 dev.platform = platform
             dev.validated_save()
-            log.info(f"Linked existing device {name} to Percepxion")
+            renamed = f" (was {previous})" if previous != name else ""
+            log.info(f"Linked existing device {name}{renamed} to Percepxion")
             return dev
 
         model = slug_to_model(source.device_type_slug) if source else ""
@@ -160,6 +168,13 @@ class NautobotAdapter(Adapter):
         dev._custom_field_data[CF_FIRMWARE] = source.firmware or None
         dev.validated_save()
         return dev
+
+    def _in_adoption_scope(self, dev) -> bool:
+        """True if the device sits in, or under, a location adoption is allowed in."""
+        scope = self.config.adoption_locations or (self.config.default_location,)
+        if "*" in scope:
+            return True
+        return any(loc.name in scope for loc in dev.location.ancestors(include_self=True))
 
     @staticmethod
     def _guard(dev, serial, platform) -> str | None:

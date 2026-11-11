@@ -4,6 +4,22 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Security
+- The Percepxion client no longer follows HTTP redirects. A redirect from the endpoint could carry the session token, and on a 307 or 308 the login request, to another host. A redirect now fails the sync with "was redirected".
+- An existing Nautobot device is now adopted only when it's in `default_location` or a location under it. Before, a device in any location or tenant could be linked and renamed on a serial or name match. Use the new `adoption_locations` setting to adopt elsewhere.
+- A device-reported model can no longer put a Markdown image or link in the job log.
+
+### Added
+- Setting `adoption_locations`: the location names where existing devices may be adopted, or `["*"]` for any location.
+
+### Changed
+- The job sets a soft time limit of 2 hours and a hard limit 5 minutes later, in place of Nautobot's defaults of 5 and 10 minutes, which could stop a sync of a few hundred console servers partway through its writes.
+
+### Fixed
+- A port that Nautobot validation rejects is skipped with a warning. Before, it stopped the sync partway, with earlier devices already written.
+- A refused Percepxion call after a good login is reported as a read failure, and a session that ends mid-sync logs in again once. Before, both were reported as a rejected login.
+- The README no longer says every secret in a Golden Config backup is proven masked. The check covers prompted secrets; the README now says what is masked and what to review.
+
 ## [0.3.2] - 2026-11-11
 
 ### Fixed

@@ -1,7 +1,9 @@
 """Read console paths from Nautobot for the coverage gate (ORM, inside Nautobot).
 
-Every query is restricted to what `user` may view. A cable whose far end the user can't view is
-reported as peer_not_visible with no SLC details. user=None means unrestricted (shell use only).
+Every query is restricted to what `user` may view: devices, console ports, cables, the SLC's
+port and device, and its primary IP. A cable the user can't view, or whose far end they can't
+view, is reported as peer_not_visible with no SLC details. An SLC primary IP the user can't view
+is not used. user=None means unrestricted (shell use only).
 """
 
 from ..constants import CF_MGMT_IP, PORT_CF
@@ -39,12 +41,17 @@ def nautobot_console_server_roles() -> list[str]:
     return [str(_app_settings().get("default_role") or "Console Server")]
 
 
-def nautobot_slc(device, cache: dict, base: int) -> Slc:
+def _primary_ip_pk(device):
+    ip = device.primary_ip
+    return ip.pk if ip is not None else None
+
+
+def nautobot_slc(device, cache: dict, base: int, ip_visible: bool = True) -> Slc:
     if device.pk in cache:
         return cache[device.pk]
     cf = device.cf or {}
     host, source = None, None
-    if device.primary_ip is not None:
+    if device.primary_ip is not None and ip_visible:
         host, source = device.primary_ip.host, "primary_ip"
     elif cf.get(CF_MGMT_IP):
         host, source = cf[CF_MGMT_IP], "percepxion_mgmt_ip"
@@ -63,7 +70,8 @@ def nautobot_slc(device, cache: dict, base: int) -> Slc:
 
 
 def nautobot_targets(user=None):
-    from nautobot.dcim.models import ConsolePort, ConsoleServerPort, Device
+    from nautobot.dcim.models import Cable, ConsolePort, ConsoleServerPort, Device
+    from nautobot.ipam.models import IPAddress
 
     base = nautobot_ssh_base_port()
     qs = _restrict(Device.objects.all(), user)
@@ -72,14 +80,18 @@ def nautobot_targets(user=None):
     for cp in _restrict(ConsolePort.objects.filter(device__in=qs), user).select_related("cable"):
         ports.setdefault(cp.device_id, []).append(cp)
 
+    cable_ids = [cp.cable_id for cps in ports.values() for cp in cps if cp.cable_id]
+    ok_cables = _visible_ids(Cable, cable_ids, user)
     peers = {
-        cp.pk: (cp.get_cable_peer() if cp.cable_id else None)
+        cp.pk: (cp.get_cable_peer() if cp.cable_id in ok_cables else None)
         for cps in ports.values()
         for cp in cps
     }
     csps = [p for p in peers.values() if isinstance(p, ConsoleServerPort)]
     ok_ports = _visible_ids(ConsoleServerPort, [p.pk for p in csps], user)
     ok_devices = _visible_ids(Device, list({p.device_id for p in csps}), user)
+    slc_ips = [_primary_ip_pk(p.device) for p in csps if p.device_id in ok_devices]
+    ok_ips = _visible_ids(IPAddress, [i for i in slc_ips if i], user)
 
     cache: dict = {}
     out = []
@@ -88,10 +100,13 @@ def nautobot_targets(user=None):
         for cp in sorted(ports.get(d.pk, []), key=lambda p: p.name):
             link = ConsoleLink(console_port=cp.name, cabled=bool(cp.cable_id))
             peer = peers.get(cp.pk)
-            if isinstance(peer, ConsoleServerPort):
+            if cp.cable_id and cp.cable_id not in ok_cables:
+                link.peer_visible = False
+            elif isinstance(peer, ConsoleServerPort):
                 if peer.pk in ok_ports and peer.device_id in ok_devices:
                     link.peer_is_console_server_port = True
-                    link.slc = nautobot_slc(peer.device, cache, base)
+                    ip_ok = _primary_ip_pk(peer.device) in ok_ips
+                    link.slc = nautobot_slc(peer.device, cache, base, ip_ok)
                     link.slc_port = peer.name
                     link.port_state = (peer.cf or {}).get(CF_PORT_STATE) or None
                 else:

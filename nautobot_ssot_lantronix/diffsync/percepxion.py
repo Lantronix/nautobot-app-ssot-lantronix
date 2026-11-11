@@ -44,12 +44,15 @@ class PercepxionAdapter(Adapter):
     # -- device type ---------------------------------------------------------------------------
 
     def _sysconfig_slug(self, pxid: str) -> str | None:
+        # A project_admin session gets HTTP 400 on job and telemetry searches without
+        # tenant_id; tenant_user sessions accept it too.
+        org = self.config.organization_id
         if self._sysconfig_jobs is None:
-            self._sysconfig_jobs = self.client.latest_sysconfig_jobs(self.config.organization_id)
+            self._sysconfig_jobs = self.client.latest_sysconfig_jobs(org)
         job = self._sysconfig_jobs.get(pxid)
         if not job:
             return None
-        return sku_from_sysconfig(parse_sysconfig(self.client.cli_output(job[0], pxid)))
+        return sku_from_sysconfig(parse_sysconfig(self.client.cli_output(job[0], pxid, org)))
 
     def resolve_type(self, dev) -> tuple[str | None, list[str]]:
         emg = emg_sku(dev.model)

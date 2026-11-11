@@ -4,6 +4,10 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Fixed
+- Syncs no longer fail with "POST /v1/telemetry/result/search returned HTTP 400" when the Percepxion account is a project administrator. Reading stored `show sysconfig` output now sends the organization ID, as the job search already did.
+- A failed sync now logs its reason as a **Sync failed** line in the job log, and to the worker log under `nautobot_ssot_lantronix.sync`. Before, the reason was only in the job result's traceback. The README has a new Troubleshooting section.
+
 ## [0.3.1] - 2026-11-10
 
 ### Changed

@@ -7,6 +7,7 @@ import logging
 from diffsync.enum import DiffSyncFlags
 from django.conf import settings
 from nautobot.apps.jobs import register_jobs
+from nautobot.core.utils.logging import sanitize
 from nautobot_ssot.jobs.base import DataSource
 
 from . import settings as app_settings
@@ -17,6 +18,11 @@ from .percepxion.client import AuthError, PartialData, PercepxionClient, Percepx
 from .servicenow import unavailable_reason
 
 name = "Lantronix SSoT"  # job grouping in the Nautobot UI
+
+# Nautobot keeps a failed job's traceback on the job result, but the job's own log doesn't say
+# why it failed. This logger has no handler of its own, so with Nautobot's default logging its
+# warnings reach the worker's stderr (`docker logs`); a LOGGING setting can route it.
+worker_log = logging.getLogger("nautobot_ssot_lantronix.sync")
 
 
 class PercepxionDataSource(DataSource):
@@ -61,6 +67,12 @@ class PercepxionDataSource(DataSource):
             raise RuntimeError("Percepxion rejected the login for the configured account") from None
         except (PercepxionUnavailable, PartialData) as exc:
             raise RuntimeError(f"Percepxion read failed, nothing changed: {exc}") from None
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        reason = sanitize(str(exc))
+        self.logger.error(f"Sync failed: {reason}")
+        worker_log.warning("Percepxion sync failed (job result %s): %s", task_id, reason)
+        super().on_failure(exc, task_id, args, kwargs, einfo)
 
     def load_target_adapter(self):
         cfg = self.source_config

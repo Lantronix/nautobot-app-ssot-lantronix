@@ -29,6 +29,7 @@ class FakeClient:
         self.states = states or {}
         self.state_error = state_error
         self.sysconfig = sysconfig or {}
+        self.tenant_ids = []
 
     def iter_devices(self):
         return iter(self.devices)
@@ -42,9 +43,11 @@ class FakeClient:
         return self.states.get(pxid, {})
 
     def latest_sysconfig_jobs(self, tenant_id=None):
+        self.tenant_ids.append(("jobs", tenant_id))
         return {pxid: ("job-1", "t") for pxid in self.sysconfig}
 
-    def cli_output(self, job, pxid):
+    def cli_output(self, job, pxid, tenant_id=None):
+        self.tenant_ids.append(("cli", tenant_id))
         return self.sysconfig.get(pxid)
 
 

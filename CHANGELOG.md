@@ -4,6 +4,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-11
+
 ### Security
 - The Percepxion client no longer follows HTTP redirects. A redirect from the endpoint could carry the session token, and on a 307 or 308 the login request, to another host. A redirect now fails the sync with "was redirected".
 - An existing Nautobot device is now adopted only when it's in `default_location` or a location under it. Before, a device in any location or tenant could be linked and renamed on a serial or name match. Use the new `adoption_locations` setting to adopt elsewhere.
@@ -58,7 +60,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 ### Added
 - First release. Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion, with ServiceNow console paths and Golden Config backups and compliance for SLC devices.
 
-[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.2.0...v0.3.0

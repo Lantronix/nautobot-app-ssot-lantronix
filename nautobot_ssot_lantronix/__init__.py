@@ -7,7 +7,7 @@ from nautobot.apps import NautobotAppConfig
 try:
     __version__ = metadata.version("nautobot-app-ssot-lantronix")
 except metadata.PackageNotFoundError:  # source checkout on PYTHONPATH (dev stack)
-    __version__ = "0.3.2"
+    __version__ = "0.4.0"
 
 
 class LantronixSSoTConfig(NautobotAppConfig):

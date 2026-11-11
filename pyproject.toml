@@ -34,4 +34,4 @@ nautobot_ssot_lantronix = ["tests/fixtures/*.json"]
 [tool.pytest.ini_options]
 testpaths = ["nautobot_ssot_lantronix/tests"]
 # Nautobot-backed tests run with `nautobot-server test` in the dev stack.
-addopts = "--ignore=nautobot_ssot_lantronix/tests/test_target_adapter.py --ignore=nautobot_ssot_lantronix/tests/test_servicenow_console_paths.py --ignore=nautobot_ssot_lantronix/tests/test_app_registry.py --ignore=nautobot_ssot_lantronix/tests/test_job_failure.py"
+addopts = "--ignore=nautobot_ssot_lantronix/tests/test_target_adapter.py --ignore=nautobot_ssot_lantronix/tests/test_servicenow_console_paths.py --ignore=nautobot_ssot_lantronix/tests/test_app_registry.py --ignore=nautobot_ssot_lantronix/tests/test_job_failure.py --ignore=nautobot_ssot_lantronix/tests/test_coverage_job.py"

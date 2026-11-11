@@ -4,6 +4,10 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Added
+
+- **AOOB console coverage gate** job, which reports which devices have a ready console path through a synced SLC port, with a reason for each device that doesn't, and fails when any device in scope isn't covered. Enable it under **Jobs**; the lantronix.oob `oob_coverage_gate` role runs it before a change.
+
 ## [0.4.1] - 2026-11-11
 
 ### Security

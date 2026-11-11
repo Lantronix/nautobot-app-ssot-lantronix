@@ -1,4 +1,4 @@
-"""The Percepxion to Nautobot SSoT data-source job."""
+"""The Percepxion to Nautobot SSoT data-source job and the console coverage gate job."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from nautobot_ssot.jobs.base import DataSource
 
 from . import settings as app_settings
 from .bootstrap import ensure_objects
+from .coverage.job import ConsoleCoverageGate
 from .diffsync.nautobot import NautobotAdapter
 from .diffsync.percepxion import PercepxionAdapter
 from .percepxion.client import AuthError, PartialData, PercepxionClient, PercepxionUnavailable
@@ -94,7 +95,7 @@ class PercepxionDataSource(DataSource):
         self.target_adapter.load()
 
 
-jobs = [PercepxionDataSource]
+jobs = [PercepxionDataSource, ConsoleCoverageGate]
 
 # Optional ServiceNow console-path job: only when nautobot-ssot's ServiceNow
 # integration is enabled and importable, so core installs need no ServiceNow extras.

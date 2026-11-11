@@ -11,7 +11,7 @@ The **Percepxion to Nautobot** job reads Percepxion and:
 
 The job never writes to Percepxion or to a console server, and never deletes anything in Nautobot. Like every SSoT job, it can run as a dry run that shows the diff without writing.
 
-Two optional modules build on the synced data:
+The app also registers the **AOOB console coverage gate** job, and two optional modules build on the synced data:
 
 - **ServiceNow console paths**: the stock nautobot-ssot ServiceNow job plus a "Connects to" relationship between each attached device and the console server port that reaches it.
 - **Golden Config**: a Nornir dispatcher that backs up SLC configuration with every secret masked, for Nautobot Golden Config backup, intended and compliance jobs.
@@ -161,6 +161,16 @@ The job has a soft time limit of 2 hours and a hard limit 5 minutes later. Chang
 The link builds `ssh://<address>:<SSH base port + port number>` from the device's primary IP, or the IPv4 management address Percepxion reports. It appears only on the unit's numbered ports (`Port-01` and up). The app keeps the link's text and URL as shipped; its weight, group and button style are yours to change. Your browser opens it with your SSH client and you sign in to the console server as yourself.
 
 On the console server, direct SSH access is off by default on every port. Turn it on for the ports you want to reach, for example `set deviceport port 1-48 sshin enable` (answer `yes` to the confirmation).
+
+## Console coverage gate
+
+The **AOOB console coverage gate** job reports, for the devices you choose, which ones have a ready console path: a console cable in Nautobot to a port on a synced SLC, with that port in a ready state (Managed or Identified by default). Run it before a change, and stop the change when any device has no way back.
+
+The `oob_coverage_gate` role in the [lantronix.oob](https://github.com/Lantronix/ansible-collection-oob) Ansible collection runs this job by name and fails the play when a device isn't covered.
+
+The app registers the job; enable it under **Jobs** after you install or upgrade. It needs the console cables in Nautobot: each device's console port cabled to the SLC console server port that reaches it. The SSoT job doesn't create those cables.
+
+The job is read only and reports only what the user running it may view; a cable whose SLC end the user can't see is reported as `peer_not_visible`, with no SLC details. It fails when any device in scope isn't covered, gives each one a reason (`no_console_port`, `no_console_cable`, `peer_not_visible`, `peer_not_console_server`, `slc_not_synced`, `port_name_unparsed`, `no_slc_host`, `port_state_unknown` or `port_state_not_ready`), and attaches the full report as `console-coverage.json` (schema `aoob.console-coverage/v1`).
 
 ## ServiceNow console paths (optional)
 

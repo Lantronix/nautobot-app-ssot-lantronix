@@ -242,9 +242,16 @@ def test_site_secrets_masked(command):
     "config,reason",
     [
         ("set snmp rocommunity 'pub'lic9'\n", "part of a secret is left"),
-        ("set remoteusers password bob enc $6$abcdefgh\n", "password has a value"),
+        ("set remoteusers password bob enc $6$abcdefgh\n", "enc has a value"),
         ("set radius server 1 host 192.0.2.1 secret Sup3rValue port 1812\n", "secret has a value"),
         ("set vpn psk Sup3rValue\n", "psk has a value"),
+        # One masked value on a line doesn't excuse another secret on the same line.
+        (
+            "set snmp rocommunity 'public' authpassword Sup3rValue\n",
+            "authpassword has a value",
+        ),
+        ("set localusers password bob enc $6$abcdefgh secret Sup3rValue\n", "secret has a value"),
+        ("set site dialoutpassword branch-a key Sup3rValue\nx1x2x3\nx1x2x3\n", "key has a value"),
         ("-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n", "key or certificate material"),
         ("config vpn key\nhunter22\nhunter22\n", "isn't followed by two masked lines"),
     ],

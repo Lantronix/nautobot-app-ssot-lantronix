@@ -72,7 +72,9 @@ _PROMPTED_LOOSE = re.compile(r"^\s*(?:set|admin)\b.*(?:password|phrase|secret|ke
 
 # A setting whose name says it holds a secret: "bindpassword", "v3phrase", "chapsecret",
 # "rocommunity", "key", and "enc" (the hash that follows a local user's password).
-_SECRET_NAME = re.compile(r"(?:password|passphrase|phrase|secret|community|psk|key)$", re.I)
+_SECRET_NAME = re.compile(
+    r"[A-Za-z0-9_+.-]*(?:password|passphrase|phrase|secret|community|psk|key)", re.I
+)
 # Values that follow such a name without being a secret: on/off settings like
 # "requiresshpublickey disable" and "changepassword enable".
 _NOT_A_SECRET = frozenset({"enable", "disable", "enabled", "disabled", "none", "''", '""'})
@@ -81,7 +83,8 @@ _MASK_RESIDUE = re.compile(re.escape(MASK) + r"['\"]?[^\s'\"]")
 
 
 def _names_secret(token: str) -> bool:
-    return token.lower() == "enc" or bool(_SECRET_NAME.search(token))
+    # A whole word, so the mask's own "<secret" isn't taken for a setting.
+    return token.lower() == "enc" or bool(_SECRET_NAME.fullmatch(token))
 
 
 def _is_prompted(line: str) -> bool:
@@ -167,15 +170,34 @@ def _assert_no_inline_secret(lines: list[str]) -> None:
             raise UnmaskedSecretError(f"line {number}: key or certificate material in the export")
         if _MASK_RESIDUE.search(line):
             raise UnmaskedSecretError(f"line {number}: part of a secret is left after masking")
-        if MASK in line or _is_prompted(line):
-            continue  # a format the rules know: masked here, or on the two lines that follow
         tokens = line.split()
-        for name, value in zip(tokens, tokens[1:], strict=False):
-            if _names_secret(name) and value.lower() not in _NOT_A_SECRET:
-                setting = re.sub(r"\W", "", name)[:32]
-                raise UnmaskedSecretError(
-                    f"line {number}: {setting} has a value the masking rules don't cover"
-                )
+        for i, (name, value) in enumerate(zip(tokens, tokens[1:], strict=False)):
+            if not _names_secret(name) or _pair_is_safe(line, tokens, i, value):
+                continue
+            setting = re.sub(r"\W", "", name)[:32]
+            raise UnmaskedSecretError(
+                f"line {number}: {setting} has a value the masking rules don't cover"
+            )
+
+
+def _pair_is_safe(line: str, tokens: list[str], i: int, value: str) -> bool:
+    """True if the value after the secret-named setting at ``tokens[i]`` isn't a live secret.
+
+    Every pair on every line is judged by itself: one masked value on a line says nothing
+    about another setting on the same line.
+    """
+    if value.lower() in _NOT_A_SECRET:
+        return True  # an on/off setting
+    if (
+        value.lstrip("'\"").startswith(MASK.split()[0])
+        and tokens[i + 2 : i + 3]
+        and tokens[i + 2].startswith(MASK.split()[1])
+    ):
+        return True  # this pair's own value is the mask
+    if tokens[i + 2 : i + 3] == ["enc"]:
+        return True  # "password <user> enc <hash>": a user name; the hash is the next pair
+    # "set site dialoutpassword <site>": the site's name; the secret is on the next two lines.
+    return bool(_PROMPTED.match(line)) and i == 2 and tokens[1] == "site"
 
 
 def clean_export(output: str) -> str:

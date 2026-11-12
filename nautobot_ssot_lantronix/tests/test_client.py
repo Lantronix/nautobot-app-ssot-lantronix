@@ -1,3 +1,5 @@
+# Shared code: this file is the same in nautobot-app-ssot-lantronix and nautobot-app-ssot-lantronix.
+# scripts/check_shared.py fails CI when the copies differ, so change both.
 """PercepxionClient tests: pure pytest, no NetBox, no network (Session.request is patched)."""
 
 from __future__ import annotations
@@ -228,21 +230,16 @@ def test_login_sets_session_headers_and_user_agent(server):
     c.login()
     list(c.iter_devices())
     login_call, search_call = server.calls
+    user_agent = f"nautobot-app-ssot-lantronix/{client_mod.CLIENT_VERSION}"
     assert login_call["json"] == {"username": USER, "password": PASSWORD}
-    assert (
-        login_call["headers"]["User-Agent"]
-        == f"nautobot-app-ssot-lantronix/{client_mod.CLIENT_VERSION}"
-    )
+    assert login_call["headers"]["User-Agent"] == user_agent
     assert login_call["headers"]["Accept"] == "application/json"
     assert login_call["headers"]["Content-Type"] == "application/json"
     assert login_call["timeout"] == (30, 60)
     assert "x-mystq-token" not in login_call["headers"]
     assert search_call["headers"]["x-mystq-token"] == TOKEN
     assert search_call["headers"]["x-csrf-token"] == CSRF
-    assert (
-        search_call["headers"]["User-Agent"]
-        == f"nautobot-app-ssot-lantronix/{client_mod.CLIENT_VERSION}"
-    )
+    assert search_call["headers"]["User-Agent"] == user_agent
     assert search_call["timeout"] == (30, 60)
 
 
@@ -538,7 +535,7 @@ def test_cli_output_none_when_absent(server, payload):
 
 def test_cli_output_passes_tenant(server):
     server.add(*LOGIN, ok_login())
-    server.add(*RESULTS, FakeResponse(200, {}))
+    server.add(*RESULTS, FakeResponse(200, {"measurements": []}))
     make_client().cli_output("jg-0001", "dev-0001", tenant_id="org-0001")
     (body,) = server.bodies("/v1/telemetry/result/search")
     assert body["tenant_id"] == "org-0001"

@@ -1,3 +1,5 @@
+# Shared code: this file is the same in nautobot-app-ssot-lantronix and nautobot-app-ssot-lantronix.
+# scripts/check_shared.py fails CI when the copies differ, so change both.
 import pytest
 
 from nautobot_ssot_lantronix.percepxion.resolver import (
@@ -214,3 +216,11 @@ def test_parse_sysconfig_garbage(text):
 def test_parse_sysconfig_minimal_fields():
     info = parse_sysconfig("Model:  SLC9032")
     assert info == {"model": "SLC9032", "power": None, "switch": None, "io_modules": []}
+
+
+def test_sysconfig_model_regex_is_linear_on_long_whitespace():
+    import time
+
+    start = time.monotonic()
+    parse_sysconfig("x" + " " * 60000 + "y")
+    assert time.monotonic() - start < 1.0

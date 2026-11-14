@@ -1,5 +1,6 @@
-# Shared with netbox-lantronix: keep the two copies identical until the shared package exists.
-"""Plain records read from Percepxion. No Nautobot, NetBox or Django imports.
+# Shared code: this file is the same in netbox-lantronix and nautobot-app-ssot-lantronix.
+# scripts/check_shared.py fails CI when the copies differ, so change both.
+"""Plain records read from Percepxion. No NetBox, Nautobot or Django imports.
 
 String fields are kept raw; sanitizing happens in the sync planner.
 """

@@ -1,4 +1,5 @@
-# Shared with netbox-lantronix: keep the two copies identical until the shared package exists.
+# Shared code: this file is the same in nautobot-app-ssot-lantronix and nautobot-app-ssot-lantronix.
+# scripts/check_shared.py fails CI when the copies differ, so change both.
 """Sanitize device-supplied strings.
 
 Device names, port names, hostnames and facts come from devices and are
@@ -105,3 +106,19 @@ def safe_ip(value: object) -> str | None:
     if getattr(ip, "scope_id", None):
         return None
     return str(ipaddress.ip_address(int(ip)) if ip.version == 4 else ipaddress.IPv6Address(int(ip)))
+
+
+def host_ip(value: object) -> str | None:
+    """Like ``safe_ip``, for an address a user's SSH client will be pointed at.
+
+    Loopback, link-local, multicast, unspecified and reserved addresses are refused: a
+    console server is never there, and a link to one would open a session on the user's
+    own machine or network segment.
+    """
+    clean = safe_ip(value)
+    if clean is None:
+        return None
+    ip = ipaddress.ip_address(clean)
+    if ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified or ip.is_reserved:
+        return None
+    return clean

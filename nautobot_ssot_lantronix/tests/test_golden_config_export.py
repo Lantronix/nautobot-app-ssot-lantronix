@@ -14,6 +14,7 @@ from nautobot_ssot_lantronix.golden_config.export import (
     UnmaskedSecretError,
     clean_export,
     mask_secrets,
+    normalize,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -21,6 +22,7 @@ with open(FIXTURES / "itmgos_export_9.7.0.0R21.txt", newline="") as fh:
     RAW = fh.read()
 ORACLE = json.loads((FIXTURES / "itmgos_export_secrets.json").read_text())
 COMMAND = re.compile(r"^(?:set|admin) ", re.M)
+PROMPTED = re.compile(r"^(?:set|admin) .*(?:password|phrase|secret|key)(?: \S+)?$")
 
 
 @pytest.fixture(scope="module")
@@ -235,6 +237,52 @@ def test_site_secrets_truncated_fail_closed(command):
 def test_site_secrets_masked(command):
     out = mask_secrets(f"{command}\nsite-secret-long\nsite-secret-long\nset ntp enable\n")
     assert "site-secret-long" not in out
+
+
+# -- every secret set ----------------------------------------------------------------------------
+#
+# The lab export behind the fixture has most prompted secrets unset: the command is followed
+# by two blank lines. These tests set every one of them, in shapes chosen to slip past a
+# careless rule, and require that none is left in the backup.
+
+SECRET_SHAPES = [
+    "Canary{n:03d}zQ9x",
+    "Can ary {n:03d} with spaces",
+    "c@n'ary\"{n:03d}#$!",
+    "enable{n:03d}",  # starts like an on/off setting's value
+    "  lead{n:03d}trail  ",
+    "<secret hidden>{n:03d}",  # starts like the mask itself
+    "{n:03d}",  # short enough to collide with ordinary numbers in the export
+]
+
+
+def _with_every_prompted_secret_set(shape):
+    """The raw export with a value typed into every prompted secret that was blank."""
+    lines = normalize(RAW).split("\n")
+    secrets = []
+    for i, line in enumerate(lines):
+        if PROMPTED.match(line) and lines[i + 1 : i + 3] == ["", ""]:
+            secrets.append(shape.format(n=len(secrets) + 1))
+            lines[i + 1] = lines[i + 2] = secrets[-1]
+    return "\n".join(lines), secrets
+
+
+def test_the_fixture_has_unset_secrets_to_fill():
+    config, secrets = _with_every_prompted_secret_set("Canary{n:03d}zQ9x")
+    # RADIUS, TACACS+, LDAP, SMTP, VPN, SNMPv3 phrases and three per-port secrets on 16 ports.
+    assert len(secrets) >= 50
+    for command in ("set tacacs+ secret", "set ldap bindpassword", "set vpn key"):
+        assert f"{command}\n{secrets[0][:6]}" in config
+
+
+@pytest.mark.parametrize("shape", SECRET_SHAPES)
+def test_no_secret_survives_with_every_secret_set(shape):
+    config, secrets = _with_every_prompted_secret_set(shape)
+    masked = clean_export(config).split("\n")
+    assert not [s for s in secrets if s in masked]
+    assert masked.count("<secret hidden>") >= 2 * len(secrets)
+    # The same commands as the backup of the unfilled export: only values changed.
+    assert COMMAND.findall("\n".join(masked)) == COMMAND.findall(clean_export(RAW))
 
 
 # -- secret formats the rules don't know must stop the backup -----------------------------------

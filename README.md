@@ -161,6 +161,14 @@ The job has a soft time limit of 2 hours and a hard limit 5 minutes later. Chang
 
 The link opens `ssh://<address>:<SSH port>` with your SSH client, and you sign in to the console server as yourself. It appears only on the unit's numbered ports (`Port-01` and up). The app keeps the link's text and URL as shipped; its weight, group and button style are yours to change.
 
+Console access is in three places:
+
+- **The device you want to reach.** Any device whose console port is cabled in Nautobot to a synced console server port gets an **Open console** button on its own page, so you don't need to know which console server port it's on. The tooltip names the console server and port. With several console ports cabled, each gets a button labelled with its port name.
+- **The console server port**, as the custom link described here.
+- **The console server.** Its page lists the ports in use (cabled in Nautobot, or with a device attached according to Percepxion), each with its button.
+
+A user sees a button only for a cable, console server port and console server they may view.
+
 **Address.** The device's primary IP, or the IPv4 management address the console server reports to Percepxion.
 
 **SSH port.** Each run reads every port's SSH port and whether SSH to the port is on from the console server's configuration in Percepxion (the Device Ports settings: **Starting SSH Port**, or `set deviceport port <n> sshport <tcp port>` for one port) into the port's **Console SSH port** custom field. When someone changes them on the console server, the link follows after the console server next uploads its configuration and the job next runs.
@@ -186,7 +194,7 @@ The `oob_coverage_gate` role in the [lantronix.oob](https://github.com/Lantronix
 
 The app registers the job; enable it under **Jobs** after you install or upgrade. It needs the console cables in Nautobot: each device's console port cabled to the SLC console server port that reaches it. The SSoT job doesn't create those cables.
 
-The job is read only and reports only what the user running it may view; a cable whose SLC end the user can't see is reported as `peer_not_visible`, with no SLC details. It fails when any device in scope isn't covered, gives each one a reason (`no_console_port`, `no_console_cable`, `peer_not_visible`, `peer_not_console_server`, `slc_not_synced`, `port_name_unparsed`, `no_slc_host`, `port_state_unknown` or `port_state_not_ready`), and attaches the full report as `console-coverage.json` (schema `aoob.console-coverage/v1`).
+The job is read only and reports only what the user running it may view; a cable whose SLC end the user can't see is reported as `peer_not_visible`, with no SLC details. It fails when any device in scope isn't covered, gives each one a reason (`no_console_port`, `no_console_cable`, `peer_not_visible`, `peer_not_console_server`, `slc_not_synced`, `port_name_unparsed`, `no_slc_host`, `port_state_unknown`, `port_state_not_ready` or `ssh_disabled`, meaning SSH to that console server port is turned off on the unit), and attaches the full report as `console-coverage.json` (schema `aoob.console-coverage/v1`).
 
 ## ServiceNow console paths (optional)
 

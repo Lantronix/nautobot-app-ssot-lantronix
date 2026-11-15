@@ -1,0 +1,12 @@
+<div class="card">
+  <div class="card-header"><strong>Console ports in use</strong></div>
+  <table class="table table-hover attr-table">
+    {% for row in rows %}
+    <tr>
+      <td><a href="{{ row.port.get_absolute_url }}">{{ row.port.name }}</a></td>
+      <td>{% if row.peer %}<a href="{{ row.peer.device.get_absolute_url }}">{{ row.peer.device }}</a>{% elif row.port.description %}{{ row.port.description }}{% else %}&mdash;{% endif %}</td>
+      <td class="text-end">{% if row.ssh_target %}<a href="ssh://{{ row.ssh_target }}" class="btn btn-sm btn-primary" rel="noopener noreferrer" title="SSH to {{ row.ssh_target }}"><span class="mdi mdi-console" aria-hidden="true"></span> Open console</a>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>

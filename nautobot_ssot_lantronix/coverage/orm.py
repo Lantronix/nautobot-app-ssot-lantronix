@@ -6,11 +6,12 @@ view, is reported as peer_not_visible with no SLC details. An SLC primary IP the
 is not used. user=None means unrestricted (shell use only).
 """
 
-from ..constants import CF_MGMT_IP, PORT_CF
+from ..constants import CF_MGMT_IP, PORT_CF, SSH_PORT_OFF
 from .core import DEFAULT_SSH_BASE_PORT, ConsoleLink, Slc, Target
 
 APP = "nautobot_ssot_lantronix"
 CF_PORT_STATE = PORT_CF["state"]
+CF_SSH_PORT = PORT_CF["ssh_port"]
 
 
 def _restrict(qs, user):
@@ -69,6 +70,17 @@ def nautobot_slc(device, cache: dict, base: int, ip_visible: bool = True) -> Slc
     return slc
 
 
+def synced_ssh_port(value) -> int | None:
+    """The port's SSH TCP port from its Console SSH port field: 0 where SSH to the port is
+    turned off on the unit, None when nothing usable is synced."""
+    text = str(value or "").strip()
+    if text == SSH_PORT_OFF:
+        return 0
+    if not text.isascii() or not text.isdigit() or len(text) > 5 or not 1 <= int(text) <= 65535:
+        return None
+    return int(text)
+
+
 def nautobot_targets(user=None):
     from nautobot.dcim.models import Cable, ConsolePort, ConsoleServerPort, Device
     from nautobot.ipam.models import IPAddress
@@ -109,6 +121,7 @@ def nautobot_targets(user=None):
                     link.slc = nautobot_slc(peer.device, cache, base, ip_ok)
                     link.slc_port = peer.name
                     link.port_state = (peer.cf or {}).get(CF_PORT_STATE) or None
+                    link.ssh_port = synced_ssh_port((peer.cf or {}).get(CF_SSH_PORT))
                 else:
                     link.peer_visible = False
             result.append(link)

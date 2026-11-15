@@ -4,12 +4,17 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-15
+
 ### Added
 
 - **Open console** on the page of the device you want to reach: any device whose console port is cabled in Nautobot to a synced console server port gets the button, without a visit to the console server port. A console server's own page now lists its ports in use, each with its button.
 - The console coverage gate reports each port's own SSH port, and a device whose console server port has SSH turned off is not covered (reason `ssh_disabled`).
 - The **Open console** link now uses each port's real SSH port, read from the console server's configuration in Percepxion on every run into a new **Console SSH port** custom field, so it follows a change to **Starting SSH Port** or to one port's `sshport`. A port with SSH turned off gets no link. Before, the port was always `ssh_base_port` plus the port number, which is wrong on a unit whose ports were renumbered. Units Percepxion holds no configuration for keep using the base port.
 - Setting `read_port_config` (on by default; `PERCEPXION_READ_PORT_CONFIG` in the environment) turns that read off. The read returns the unit's whole configuration; the app keeps two settings per port and drops the rest. See **Open console** in the README.
+
+### Changed
+- Dependency updates (Dependabot): networktocode/nautobot 3.2.9-py3.12 (docker) (#26), networktocode/nautobot 3.2.9-py3.12 (dev) (#25), actions/setup-python 7.1.0 (the) (#21).
 
 ## [0.5.0] - 2026-11-11
 
@@ -89,7 +94,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 ### Added
 - First release. Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion, with ServiceNow console paths and Golden Config backups and compliance for SLC devices.
 
-[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.3.2...v0.4.0

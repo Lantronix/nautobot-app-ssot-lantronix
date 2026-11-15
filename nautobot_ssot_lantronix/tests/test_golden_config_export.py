@@ -285,6 +285,53 @@ def test_no_secret_survives_with_every_secret_set(shape):
     assert COMMAND.findall("\n".join(masked)) == COMMAND.findall(clean_export(RAW))
 
 
+# -- NTP authentication keys ---------------------------------------------------------------------
+#
+# Seen on a lab unit running 9.8.0.0R11 with a key set: the command ends in the key's format,
+# not in a secret's name, and the key and its confirmation follow on the next two lines.
+
+NTP_MARKER = "ntp-marker-value-91"
+
+
+@pytest.mark.parametrize("fmt", ["ascii", "hex"])
+def test_ntp_authentication_key_is_masked(fmt):
+    config = (
+        "set ntp localserverid 5 keyindex 1 hash disable\n"
+        f"set ntp localserverkey 6 format {fmt}\n{NTP_MARKER}\n{NTP_MARKER}\n"
+        "set ntp localserverid 6 keyindex 6 hash SHA1\n"
+    )
+    masked = mask_secrets(config)
+    assert NTP_MARKER not in masked
+    assert masked == config.replace(NTP_MARKER, "<secret hidden>")
+    assert mask_secrets(masked) == masked
+
+
+def test_ntp_key_is_masked_with_crlf_line_endings():
+    lines = [
+        "set ntp localserverkey 2 format ascii",
+        NTP_MARKER,
+        NTP_MARKER,
+        "set ntp state enable",
+        "",
+    ]
+    assert NTP_MARKER not in clean_export("\r\n".join(lines))
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        f"set ntp localserverkey 6 format ascii\n\n{NTP_MARKER}\n{NTP_MARKER}\n",  # shifted a line
+        f"set ntp localserverkey 6 format ascii\n{NTP_MARKER}",  # cut short
+        f"set ntp localserverkey 6 format ascii {NTP_MARKER}\n",  # a form the rules don't know
+        f"set ntp localserverkey 6 format base64\n{NTP_MARKER}\n{NTP_MARKER}\n",
+    ],
+)
+def test_ntp_key_in_an_unexpected_shape_fails_closed(config):
+    with pytest.raises(UnmaskedSecretError) as exc:
+        mask_secrets(config)
+    assert NTP_MARKER not in str(exc.value)
+
+
 # -- secret formats the rules don't know must stop the backup -----------------------------------
 
 

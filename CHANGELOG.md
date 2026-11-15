@@ -4,6 +4,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-15
+
 ### Fixed
 
 - Golden Config backups of a console server with an NTP authentication key now succeed, with the key masked. Before, the masking guard refused the whole backup ("localserverkey has a value the masking rules don't cover"), so the key never reached a backup but the unit couldn't be backed up.
@@ -98,7 +100,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 ### Added
 - First release. Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion, with ServiceNow console paths and Golden Config backups and compliance for SLC devices.
 
-[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.0...v0.4.1

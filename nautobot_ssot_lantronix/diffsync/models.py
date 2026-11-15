@@ -97,7 +97,7 @@ class LantronixDevice(DiffSyncModel):
 class LantronixConsolePort(DiffSyncModel):
     _modelname: ClassVar[str] = "console_port"
     _identifiers: ClassVar[tuple] = ("percepxion_device_id", "number")
-    _attributes: ClassVar[tuple] = ("label", "description", *ATTACHED_ATTRS)
+    _attributes: ClassVar[tuple] = ("label", "description", *ATTACHED_ATTRS, "ssh_port")
 
     percepxion_device_id: str
     number: int
@@ -111,6 +111,9 @@ class LantronixConsolePort(DiffSyncModel):
     attached_serial: str = ""
     attached_hostname: str = ""
     attached_ip: str = ""
+    # The port's SSH TCP port as text, "off" when SSH to the port is turned off on the unit,
+    # empty when not known.
+    ssh_port: str = ""
     # Not diffed: it moves on every heartbeat. Written whenever the port is written, from the
     # source record, so it dates the attached-device facts without a change on every run.
     attached_last_seen: str = ""

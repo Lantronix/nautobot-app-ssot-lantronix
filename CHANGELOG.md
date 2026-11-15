@@ -4,6 +4,11 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Added
+
+- The **Open console** link now uses each port's real SSH port, read from the console server's configuration in Percepxion on every run into a new **Console SSH port** custom field, so it follows a change to **Starting SSH Port** or to one port's `sshport`. A port with SSH turned off gets no link. Before, the port was always `ssh_base_port` plus the port number, which is wrong on a unit whose ports were renumbered. Units Percepxion holds no configuration for keep using the base port.
+- Setting `read_port_config` (on by default; `PERCEPXION_READ_PORT_CONFIG` in the environment) turns that read off. The read returns the unit's whole configuration; the app keeps two settings per port and drops the rest. See **Open console** in the README.
+
 ## [0.5.0] - 2026-11-11
 
 ### Added

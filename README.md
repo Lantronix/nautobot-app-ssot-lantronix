@@ -7,7 +7,7 @@ The **Percepxion to Nautobot** job reads Percepxion and:
 - creates each console server in Nautobot with the right device type, so its console server ports come from the device type
 - labels each console server port with the name configured on the console server, and describes it with the hostname of the attached device
 - records the port state and the attached device's type, model, OS version, serial, hostname and management IP in custom fields on the port, when the console server reports them
-- adds an **Open console** link on each port that launches an SSH session through the console server (`ssh://<console server>:<base port + port number>`)
+- adds an **Open console** link on each port that launches an SSH session through the console server (`ssh://<console server>:<the port's SSH port>`), kept in step with the console server's own settings
 
 The job never writes to Percepxion or to a console server, and never deletes anything in Nautobot. Like every SSoT job, it can run as a dry run that shows the diff without writing.
 
@@ -118,7 +118,8 @@ PLUGINS_CONFIG = {
         "default_location": "Main Site",   # location for new console servers (must exist)
         "default_role": "Console Server",
         "default_status": "Active",
-        "ssh_base_port": 3000,             # change if you changed it on your console servers
+        "ssh_base_port": 3000,             # used only for units whose port settings aren't read
+        # "read_port_config": False,       # don't read each port's SSH port (see Open console)
         "model_rules": {},                 # see Device models
         # "adoption_locations": ["Main Site"],  # where existing devices may be adopted
     },
@@ -158,9 +159,24 @@ The job has a soft time limit of 2 hours and a hard limit 5 minutes later. Chang
 
 ## Open console
 
-The link builds `ssh://<address>:<SSH base port + port number>` from the device's primary IP, or the IPv4 management address Percepxion reports. It appears only on the unit's numbered ports (`Port-01` and up). The app keeps the link's text and URL as shipped; its weight, group and button style are yours to change. Your browser opens it with your SSH client and you sign in to the console server as yourself.
+The link opens `ssh://<address>:<SSH port>` with your SSH client, and you sign in to the console server as yourself. It appears only on the unit's numbered ports (`Port-01` and up). The app keeps the link's text and URL as shipped; its weight, group and button style are yours to change.
+
+**Address.** The device's primary IP, or the IPv4 management address the console server reports to Percepxion.
+
+**SSH port.** Each run reads every port's SSH port and whether SSH to the port is on from the console server's configuration in Percepxion (the Device Ports settings: **Starting SSH Port**, or `set deviceport port <n> sshport <tcp port>` for one port) into the port's **Console SSH port** custom field. When someone changes them on the console server, the link follows after the console server next uploads its configuration and the job next runs.
+
+- A port with SSH turned off on the console server has `off` in the field and gets no link.
+- A unit whose configuration Percepxion doesn't hold, or can't return, keeps the ports from the last run that read them. A port with nothing in the field uses `ssh_base_port` plus the port number, which is the factory numbering (3001 for port 1).
 
 On the console server, direct SSH access is off by default on every port. Turn it on for the ports you want to reach, for example `set deviceport port 1-48 sshin enable` (answer `yes` to the confirmation).
+
+### What the configuration read involves
+
+Percepxion's port search doesn't report a port's SSH port, so the app reads it from the unit's stored configuration, one request per console server per run (`POST /v1/telemetry/config/edit`; despite the name it changes nothing, and the request that saves a configuration isn't on the app's list of allowed requests).
+
+That response is the unit's whole settings tree. Percepxion masks its password fields, but SNMP community strings and similar detail are in it. The app reads two settings per port, the SSH port and whether SSH is on, and drops the rest before anything else sees it: nothing else is stored or logged. The account needs no extra rights for this; it can already read the configuration.
+
+To turn the read off, set `"read_port_config": False` in the app's settings, or `PERCEPXION_READ_PORT_CONFIG=false` in the environment. Every link then uses `ssh_base_port` plus the port number.
 
 ## Console coverage gate
 

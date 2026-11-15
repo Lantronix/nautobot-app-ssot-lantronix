@@ -308,6 +308,26 @@ class SyncTest(TestCase):
         port7.refresh_from_db()
         self.assertEqual(self.render_link(port7)[1], "ssh://[2001:db8::10]:3007")
 
+    def test_open_console_link_uses_the_ports_own_ssh_port(self):
+        self.sync()
+        dev = Device.objects.get(name="SLC-A")
+        dev._custom_field_data["lx_mgmt_ip"] = "192.0.2.10"
+        dev.validated_save()
+        port7 = ConsoleServerPort.objects.get(device=dev, name="Port-07")
+
+        def with_ssh_port(value):
+            port7._custom_field_data["lx_ssh_port"] = value
+            port7.validated_save()
+            return self.render_link(ConsoleServerPort.objects.get(pk=port7.pk))
+
+        # The port was given its own SSH port on the unit.
+        self.assertEqual(with_ssh_port("22007"), ("Open console", "ssh://192.0.2.10:22007"))
+        # SSH to the port is turned off on the unit: no button.
+        self.assertEqual(with_ssh_port("off")[0], "")
+        # Nothing synced, or a value that isn't a TCP port: the base port plus the port number.
+        for value in (None, "", "0", "70000", "-5", "abc", "22007; x"):
+            self.assertEqual(with_ssh_port(value), ("Open console", "ssh://192.0.2.10:3007"), value)
+
     def test_bootstrap_keeps_admin_changes_to_the_link_but_owns_its_url(self):
         from nautobot.extras.models import CustomLink, ObjectChange
 

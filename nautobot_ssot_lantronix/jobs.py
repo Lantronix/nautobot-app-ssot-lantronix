@@ -93,6 +93,7 @@ class PercepxionDataSource(DataSource):
             ensure_objects(cfg, self.logger)
         self.target_adapter = NautobotAdapter(job=self, sync=self.sync, config=cfg)
         self.target_adapter.load()
+        self.source_adapter.keep_unread_ssh_ports(self.target_adapter)
 
 
 jobs = [PercepxionDataSource, ConsoleCoverageGate]

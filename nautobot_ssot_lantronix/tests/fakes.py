@@ -49,6 +49,18 @@ class FakeClient:
             raise PercepxionUnavailable("POST /v1/telemetry/stat/view returned HTTP 500")
         return self.states.get(pxid, {})
 
+    ssh = None  # pxid -> {port number: tcp port}; None: every unit reports ports 1-16 on 3001+
+    ssh_error = ()
+    ssh_calls = None
+
+    def port_ssh(self, pxid, org=None):
+        self.ssh_calls = [*(self.ssh_calls or []), (pxid, org)]
+        if pxid in self.ssh_error:
+            raise PercepxionUnavailable("POST /v1/telemetry/config/edit returned HTTP 400")
+        if self.ssh is None:
+            return {n: 3000 + n for n in range(1, 17)}
+        return self.ssh.get(pxid, {})
+
     def latest_sysconfig_jobs(self, tenant_id=None):
         self.tenant_ids.append(("jobs", tenant_id))
         return {pxid: ("job-1", "t") for pxid in self.sysconfig}

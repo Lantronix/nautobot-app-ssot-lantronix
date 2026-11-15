@@ -47,3 +47,16 @@ def test_adoption_locations():
     for bad in ("Lab", [""], [1]):
         with pytest.raises(ConfigError, match="adoption_locations"):
             load({"adoption_locations": bad}, ENV)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"), [("false", False), ("0", False), ("no", False), ("true", True), ("", True)]
+)
+def test_read_port_config_from_environment(raw, expected):
+    assert load({}, {**ENV, "PERCEPXION_READ_PORT_CONFIG": raw}).read_port_config is expected
+
+
+def test_read_port_config_is_on_by_default_and_app_settings_win():
+    assert load({}, ENV).read_port_config is True
+    env = {**ENV, "PERCEPXION_READ_PORT_CONFIG": "true"}
+    assert load({"read_port_config": False}, env).read_port_config is False

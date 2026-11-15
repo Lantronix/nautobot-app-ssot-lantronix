@@ -37,6 +37,8 @@ class SourceConfig:
     ssh_base_port: int = 3000
     verify: bool = True
     ca_bundle: str | None = None
+    # Read each port's SSH port from the unit's configuration in Percepxion (Open console).
+    read_port_config: bool = True
     # (MODEL, rj45, usb) -> device-type slug, for SLC 9000 units with no stored sysconfig.
     model_rules: dict[tuple[str, int, int], str] = field(default_factory=dict)
     # Location names an existing device must be in (or under) to be adopted. Empty means
@@ -78,6 +80,8 @@ def load(app_settings: dict, environ: dict | None = None) -> SourceConfig:
         raise ConfigError("PERCEPXION_URL must use https")
     verify_raw = app_settings.get("verify", env.get("PERCEPXION_VERIFY", "true"))
     verify = str(verify_raw).strip().lower() not in ("0", "false", "no")
+    read_raw = app_settings.get("read_port_config", env.get("PERCEPXION_READ_PORT_CONFIG", "true"))
+    read_port_config = str(read_raw).strip().lower() not in ("0", "false", "no")
     try:
         port = int(app_settings.get("ssh_base_port", 3000))
     except (TypeError, ValueError):
@@ -92,6 +96,7 @@ def load(app_settings: dict, environ: dict | None = None) -> SourceConfig:
         default_status=str(app_settings.get("default_status") or "Active"),
         ssh_base_port=port,
         verify=verify,
+        read_port_config=read_port_config,
         ca_bundle=str(values["ca_bundle"]) or None,
         model_rules=_rules(app_settings.get("model_rules")),
         adoption_locations=_locations(app_settings.get("adoption_locations")),

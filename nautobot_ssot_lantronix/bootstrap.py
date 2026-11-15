@@ -13,6 +13,7 @@ from .constants import (
     NETWORK_DRIVER,
     PLATFORM_NAME,
     PORT_CF_LABELS,
+    SSH_PORT_OFF,
 )
 
 LINK_NAME = "Lantronix: Open console"
@@ -91,17 +92,25 @@ def ensure_objects(config, logger) -> None:
 
 
 def console_link(ssh_base_port: int) -> tuple[str, str]:
-    """Jinja text and URL of the Open console custom link."""
+    """Jinja text and URL of the Open console custom link.
+
+    The TCP port is the port's own SSH port, synced from the unit's configuration into
+    ``lx_ssh_port``. With nothing synced it is the base port plus the port number, the unit's
+    factory numbering. No button where the unit has SSH to the port turned off.
+    """
     numbered = "obj.name[:5] == 'Port-' and (obj.name[5:] | int(-1)) > 0"
     address = "obj.device.primary_ip or obj.device.cf.lx_mgmt_ip"
+    # .get(): a port made before the field existed, or by hand, has no such key.
+    ssh_on = f"obj.cf.get('lx_ssh_port') != '{SSH_PORT_OFF}'"
     text = (
         "{% if obj.device.cf.percepxion_device_id and "
-        f"{numbered} and ({address}) %}}Open console{{% endif %}}"
+        f"{numbered} and ({address}) and {ssh_on} %}}Open console{{% endif %}}"
     )
     target_url = (
         "{% set host = (obj.device.primary_ip.host if obj.device.primary_ip "
         "else obj.device.cf.lx_mgmt_ip) | string %}"
+        "{% set synced = obj.cf.get('lx_ssh_port') | int(0) %}"
         "ssh://{{ '[' ~ host ~ ']' if ':' in host else host }}:"
-        f"{{{{ {int(ssh_base_port)} + (obj.name[5:] | int) }}}}"
+        f"{{{{ synced if 0 < synced < 65536 else {int(ssh_base_port)} + (obj.name[5:] | int) }}}}"
     )
     return text, target_url

@@ -1,5 +1,6 @@
 """Percepxion source adapter with a fake client."""
 
+import dataclasses
 import json
 import logging
 
@@ -192,3 +193,56 @@ def test_device_with_no_organization_is_skipped_and_not_named(caplog):
         a = load(FakeClient([orphan], []))
     assert a.get_all(LantronixDevice) == []
     assert "SECRET-NAME" not in caplog.text and "1 device(s) outside" in caplog.text
+
+
+# -- each port's SSH port, from the unit's configuration ------------------------------------------
+
+
+def test_ports_carry_the_ssh_port_the_unit_reports():
+    client = FakeClient([device()], [port(1), port(2), port(3)])
+    client.ssh = {"dev-0001": {1: 3001, 2: 0, 3: 22003}}
+    adapter = load(client, RULES)
+    assert [get_port(adapter, n).ssh_port for n in (1, 2, 3)] == ["3001", "off", "22003"]
+    assert client.ssh_calls == [("dev-0001", ORG)]
+
+
+def test_a_port_the_configuration_does_not_list_has_no_ssh_port():
+    client = FakeClient([device()], [port(1), port(2)])
+    client.ssh = {"dev-0001": {1: 3001}}
+    assert get_port(load(client, RULES), 2).ssh_port == ""
+
+
+def test_the_configuration_read_can_be_turned_off():
+    client = FakeClient([device()], [port(1)])
+    adapter = PercepxionAdapter(
+        job=Job(), config=dataclasses.replace(cfg(RULES), read_port_config=False), client=client
+    )
+    adapter.load()
+    assert client.ssh_calls is None
+    assert get_port(adapter, 1).ssh_port == ""
+
+
+def test_an_unreadable_configuration_keeps_the_ssh_ports_nautobot_holds(caplog):
+    client = FakeClient([device()], [port(1), port(2)])
+    client.ssh_error = ("dev-0001",)
+    with caplog.at_level(logging.INFO):
+        adapter = load(client, RULES)  # the run goes on
+    assert "Port SSH settings unavailable for 1 of 1 devices" in caplog.text
+    assert get_port(adapter, 1).ssh_port == ""
+
+    # What an earlier run stored in Nautobot: port 1 renumbered; port 2 not in Nautobot.
+    earlier = FakeClient([device()], [port(1)])
+    earlier.ssh = {"dev-0001": {1: 22001}}
+    adapter.keep_unread_ssh_ports(load(earlier, RULES))
+    assert get_port(adapter, 1).ssh_port == "22001"
+    assert get_port(adapter, 2).ssh_port == ""
+
+
+def test_a_readable_configuration_is_not_overridden_by_what_nautobot_holds():
+    client = FakeClient([device()], [port(1)])
+    client.ssh = {"dev-0001": {1: 3001}}
+    adapter = load(client, RULES)
+    earlier = FakeClient([device()], [port(1)])
+    earlier.ssh = {"dev-0001": {1: 22001}}
+    adapter.keep_unread_ssh_ports(load(earlier, RULES))
+    assert get_port(adapter, 1).ssh_port == "3001"

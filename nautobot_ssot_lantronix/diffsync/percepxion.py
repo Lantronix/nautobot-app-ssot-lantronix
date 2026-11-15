@@ -12,9 +12,9 @@ import re
 from collections import Counter
 
 from diffsync import Adapter
-from diffsync.exceptions import ObjectAlreadyExists
+from diffsync.exceptions import ObjectAlreadyExists, ObjectNotFound
 
-from ..constants import DESCRIPTION_MAX, FACT_MAX, LABEL_MAX
+from ..constants import DESCRIPTION_MAX, FACT_MAX, LABEL_MAX, SSH_PORT_OFF
 from ..percepxion.client import PartialData, PercepxionUnavailable
 from ..percepxion.resolver import (
     emg_sku,
@@ -157,13 +157,52 @@ class PercepxionAdapter(Adapter):
                 # The device's ports stay out of the diff, so Nautobot keeps what it has.
                 log.warning(f"Port state unavailable for {pxid}, ports left as they are: {exc}")
 
+        ssh_ports = self._ssh_ports(states, org)
         for port in self.client.iter_ports():
             pxid = safe_id(port.device_id)
             if pxid not in states or port.number <= 0 or org not in port.org_ids:
                 continue
-            self._add_port(pxid, port, states[pxid].get(port.number))
+            ssh = ssh_ports.get(pxid, {}).get(port.number)
+            ssh_port = "" if ssh is None else SSH_PORT_OFF if ssh == 0 else str(ssh)
+            self._add_port(pxid, port, states[pxid].get(port.number), ssh_port)
 
-    def _add_port(self, pxid, port, state) -> None:
+    def _ssh_ports(self, device_ids, org) -> dict[str, dict[int, int]]:
+        """Each unit's SSH TCP port per device port, from its configuration in Percepxion:
+        one call per unit, and none when ``read_port_config`` is off.
+
+        A unit whose configuration can't be read is remembered in ``ssh_unread``; its ports
+        keep what Nautobot already holds (see ``keep_unread_ssh_ports``). Percepxion has no
+        configuration for a unit that never uploaded one, so that is logged as a count.
+        """
+        self.ssh_unread: set[str] = set()
+        if not self.config.read_port_config:
+            return {}
+        ssh_ports = {}
+        for pxid in device_ids:
+            try:
+                ssh_ports[pxid] = self.client.port_ssh(pxid, org)
+            except PercepxionUnavailable:
+                self.ssh_unread.add(pxid)
+        if self.ssh_unread:
+            self.job.logger.info(
+                f"Port SSH settings unavailable for {len(self.ssh_unread)} of {len(device_ids)} "
+                "devices; their Open console links keep the last known ports, or the base port"
+            )
+        return ssh_ports
+
+    def keep_unread_ssh_ports(self, target) -> None:
+        """Give the ports of units whose configuration couldn't be read the SSH port the
+        target already holds, so a failed read changes nothing. Call after the target loads."""
+        for port in self.get_all(LantronixConsolePort):
+            if port.percepxion_device_id not in self.ssh_unread:
+                continue
+            try:
+                port.ssh_port = target.get(LantronixConsolePort, port.get_unique_id()).ssh_port
+            except ObjectNotFound:
+                continue
+            self.update(port)
+
+    def _add_port(self, pxid, port, state, ssh_port="") -> None:
         label = (
             "" if is_default_port_name(port.name, port.number) else clean_text(port.name, LABEL_MAX)
         )
@@ -204,6 +243,7 @@ class PercepxionAdapter(Adapter):
             number=port.number,
             label=label,
             description=hostname,
+            ssh_port=ssh_port,
             **attached,
         )
         try:

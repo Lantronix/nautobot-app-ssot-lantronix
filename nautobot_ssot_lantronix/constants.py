@@ -18,6 +18,7 @@ PORT_CF = {
     "attached_hostname": "lx_attached_hostname",
     "attached_ip": "lx_attached_ip",
     "attached_last_seen": "lx_attached_last_seen",
+    "ssh_port": "lx_ssh_port",
 }
 
 PORT_CF_LABELS = {
@@ -30,6 +31,7 @@ PORT_CF_LABELS = {
     "lx_attached_hostname": "Attached hostname",
     "lx_attached_ip": "Attached management IP",
     "lx_attached_last_seen": "Attached last seen",
+    "lx_ssh_port": "Console SSH port",
 }
 
 LABEL_MAX = 64
@@ -45,3 +47,8 @@ def port_name(number: int) -> str:
 def slug_to_model(slug: str) -> str:
     """Device-type library slug to the Nautobot device type model: lantronix-slc9016 -> SLC9016."""
     return slug.removeprefix("lantronix-").upper()
+
+
+# lx_ssh_port holds the port's SSH TCP port as text, this word when SSH to the port is turned
+# off on the unit, or nothing when the unit's configuration hasn't been read.
+SSH_PORT_OFF = "off"

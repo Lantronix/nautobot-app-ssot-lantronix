@@ -92,6 +92,17 @@ class CoverageGateJobTests(TransactionTestCase):
         self.assertTrue(by["sw-01"]["covered"], by["sw-01"]["reasons"])
         self.assertEqual(by["sw-02"]["reasons"], ["no_console_cable"])
 
+    def test_reports_the_ports_own_ssh_port_and_fails_when_ssh_is_off(self):
+        port = ConsoleServerPort.objects.get(name="Port-02")
+        port._custom_field_data["lx_ssh_port"] = "22002"
+        port.save()
+        self.assertEqual(self.report(self.run_gate("sw-01"))["devices"][0]["ssh_port"], 22002)
+        port._custom_field_data["lx_ssh_port"] = "off"
+        port.save()
+        result = self.run_gate("sw-01")
+        self.assertEqual(result.status, JobResultStatusChoices.STATUS_FAILURE)
+        self.assertEqual(self.report(result)["devices"][0]["reasons"], ["ssh_disabled"])
+
     def test_role_finds_the_job_by_name(self):
         # lantronix.oob's oob_coverage_gate role looks the job up by this name.
         self.assertEqual(ConsoleCoverageGate.Meta.name, "AOOB console coverage gate")

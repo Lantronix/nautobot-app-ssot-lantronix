@@ -6,6 +6,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ### Added
 
+- **Open console** on the page of the device you want to reach: any device whose console port is cabled in Nautobot to a synced console server port gets the button, without a visit to the console server port. A console server's own page now lists its ports in use, each with its button.
+- The console coverage gate reports each port's own SSH port, and a device whose console server port has SSH turned off is not covered (reason `ssh_disabled`).
 - The **Open console** link now uses each port's real SSH port, read from the console server's configuration in Percepxion on every run into a new **Console SSH port** custom field, so it follows a change to **Starting SSH Port** or to one port's `sshport`. A port with SSH turned off gets no link. Before, the port was always `ssh_base_port` plus the port number, which is wrong on a unit whose ports were renumbered. Units Percepxion holds no configuration for keep using the base port.
 - Setting `read_port_config` (on by default; `PERCEPXION_READ_PORT_CONFIG` in the environment) turns that read off. The read returns the unit's whole configuration; the app keeps two settings per port and drops the rest. See **Open console** in the README.
 

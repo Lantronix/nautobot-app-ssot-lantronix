@@ -29,9 +29,9 @@ servicenow = ["nautobot-ssot[servicenow]>=4.8,<5"]
 include = ["nautobot_ssot_lantronix*"]
 
 [tool.setuptools.package-data]
-nautobot_ssot_lantronix = ["tests/fixtures/*.json"]
+nautobot_ssot_lantronix = ["tests/fixtures/*.json", "templates/**/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["nautobot_ssot_lantronix/tests"]
 # Nautobot-backed tests run with `nautobot-server test` in the dev stack.
-addopts = "--ignore=nautobot_ssot_lantronix/tests/test_target_adapter.py --ignore=nautobot_ssot_lantronix/tests/test_servicenow_console_paths.py --ignore=nautobot_ssot_lantronix/tests/test_app_registry.py --ignore=nautobot_ssot_lantronix/tests/test_job_failure.py --ignore=nautobot_ssot_lantronix/tests/test_coverage_job.py"
+addopts = "--ignore=nautobot_ssot_lantronix/tests/test_template_content.py --ignore=nautobot_ssot_lantronix/tests/test_target_adapter.py --ignore=nautobot_ssot_lantronix/tests/test_servicenow_console_paths.py --ignore=nautobot_ssot_lantronix/tests/test_app_registry.py --ignore=nautobot_ssot_lantronix/tests/test_job_failure.py --ignore=nautobot_ssot_lantronix/tests/test_coverage_job.py"

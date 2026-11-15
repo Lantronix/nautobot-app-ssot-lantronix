@@ -22,9 +22,12 @@ _CHATTER = re.compile(
 _PROMPT = re.compile(r"^\[[\w.-]{1,64}\]>\s?$")
 
 # A command line that ends in a secret's name; the CLI prompts for the value and a confirmation.
+# Two commands name the secret mid-line: a site's secrets end in the site's name, and an NTP
+# authentication key ends in its format ("set ntp localserverkey 2 format ascii").
+_NTP_KEY_CMD = r"set ntp localserverkey \d+ format (?:hex|ascii)"
 _PROMPTED_CMD = (
-    r"(?:set|admin) (?:[^\n]*(?:password|phrase|secret|key)|site (?:dialoutpassword|"
-    r"chapsecret) [^\n]+)"
+    r"(?:(?:set|admin) (?:[^\n]*(?:password|phrase|secret|key)|site (?:dialoutpassword|"
+    rf"chapsecret) [^\n]+)|{_NTP_KEY_CMD})"
 )
 
 # (name, regex, replacement), applied in order as whole-text MULTILINE substitutions, the same
@@ -34,7 +37,7 @@ SECRET_RULES: list[tuple[str, str, str]] = [
         "ITMGOS prompted secrets",
         # The command line ends in the secret's name; the value and its confirmation follow
         # on the next two lines: "set tacacs+ secret", "admin ftp password",
-        # "set site chapsecret <site>", per-port dial-out and CHAP secrets.
+        # "set site chapsecret <site>", per-port dial-out and CHAP secrets, NTP keys.
         rf"^({_PROMPTED_CMD}\n)[^\n]*\n[^\n]*\n",
         rf"\1{MASK}\n{MASK}\n",
     ),
@@ -65,6 +68,7 @@ _ANSI = re.compile(
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")  # every C0 control except \t and \n, plus DEL
 _LINE_ENDS = re.compile(r"\r*\n\r?|\r")
 _PROMPTED = re.compile(rf"^{_PROMPTED_CMD}$")
+_NTP_KEY = re.compile(rf"^{_NTP_KEY_CMD}$")
 # Looser variant for the guard (with _PROMPTED, via _is_prompted), so a line the mask rule
 # skips still fails closed.
 _PROMPTED_LOOSE = re.compile(r"^\s*(?:set|admin)\b.*(?:password|phrase|secret|key)\s*$")
@@ -198,6 +202,8 @@ def _pair_is_safe(line: str, tokens: list[str], i: int, value: str) -> bool:
     if i == 2 and tokens[2] == "password" and _LOCAL_USER_HASH.match(line):
         return True  # "set localusers password <user> enc <hash>": a user name; the hash
         # is the next pair and is judged there
+    if i == 2 and _NTP_KEY.match(line):
+        return True  # "set ntp localserverkey <n> ...": the server's number, not the key
     # "set site dialoutpassword <site>": the site's name; the secret is on the next two lines.
     return bool(_PROMPTED.match(line)) and i == 2 and tokens[1] == "site"
 

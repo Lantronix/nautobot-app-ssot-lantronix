@@ -2,7 +2,7 @@
 
 import pytest
 
-from nautobot_ssot_lantronix.settings import ConfigError, load
+from nautobot_ssot_lantronix.settings import ConfigError, load, manage_cables_setting
 
 ENV = {
     "PERCEPXION_URL": "https://px.example/api",
@@ -60,3 +60,21 @@ def test_read_port_config_is_on_by_default_and_app_settings_win():
     assert load({}, ENV).read_port_config is True
     env = {**ENV, "PERCEPXION_READ_PORT_CONFIG": "true"}
     assert load({"read_port_config": False}, env).read_port_config is False
+
+
+def test_manage_cables_is_off_by_default():
+    assert load({}, ENV).manage_cables is False
+    assert manage_cables_setting({}, {}) is False
+
+
+@pytest.mark.parametrize(
+    ("app", "env", "expected"),
+    [
+        ({"manage_cables": True}, "", True),
+        ({"manage_cables": False}, "true", False),  # the app setting wins
+        ({}, "true", True),
+        ({}, "no", False),
+    ],
+)
+def test_manage_cables_from_app_settings_or_environment(app, env, expected):
+    assert load(app, {**ENV, "PERCEPXION_MANAGE_CABLES": env}).manage_cables is expected

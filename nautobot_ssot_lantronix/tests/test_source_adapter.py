@@ -9,7 +9,7 @@ import pytest
 from nautobot_ssot_lantronix.diffsync.models import LantronixConsolePort, LantronixDevice
 from nautobot_ssot_lantronix.diffsync.percepxion import PercepxionAdapter
 from nautobot_ssot_lantronix.percepxion.records import PxDevice
-from nautobot_ssot_lantronix.percepxion.telemetry import parse_port_states
+from nautobot_ssot_lantronix.percepxion.telemetry import PxPortState, parse_port_states
 from nautobot_ssot_lantronix.tests.fakes import (
     FIXTURE,
     ORG,
@@ -159,6 +159,14 @@ def test_ports_are_children_of_their_device():
     a = fixture_slc()
     dev = a.get(LantronixDevice, {"percepxion_device_id": "dev-0001"})
     assert len(dev.console_ports) == 4
+
+
+def test_only_ports_with_a_telemetry_state_are_observed():
+    # Cable management changes only ports whose state the telemetry view reported this run.
+    states = {"dev-0001": {1: PxPortState(1, "Disconnected", False)}}
+    a = load(FakeClient([device()], [port(1), port(2, model="X")], states=states), RULES)
+    assert (get_port(a, 1).observed, get_port(a, 2).observed) == (True, False)
+    assert all(p.observed for p in fixture_slc().get_all(LantronixConsolePort))
 
 
 def test_telemetry_failure_leaves_that_devices_ports_out(caplog):

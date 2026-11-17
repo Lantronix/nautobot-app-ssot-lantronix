@@ -4,6 +4,10 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Added
+
+- Console cable management: with the new `manage_cables` setting on (off by default; `PERCEPXION_MANAGE_CABLES` in the environment), each sync makes the console cables on synced SLC ports match what the SLC reports, so Percepxion becomes the system of record for them. A cable is removed only when the port is Disconnected and created only on a unique serial or hostname match with one clear console port; cables ending on anything but a console port are never touched. New cables carry the tag `lantronix-discovered`, each change adds a note to the attached device, and a dry run only logs the plan. The job's **Manage console cables** input overrides the setting for one run. See **Console cables** in the README.
+
 ## [0.6.1] - 2026-11-15
 
 ### Fixed

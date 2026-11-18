@@ -1,8 +1,9 @@
 """diffsync models. create/update write to Nautobot; the Percepxion adapter only loads them.
 
 Rules carried from the NetBox plugin: a device's type and location are set once at create and
-never changed, nothing is deleted, cables are never touched, and console server ports come from
-the device type (the app updates them, never creates them).
+never changed, nothing is deleted, and console server ports come from the device type (the app
+updates them, never creates them). Cables are never written here; with ``manage_cables`` on,
+the job reconciles console cables after the sync (``cables.py``).
 """
 
 from __future__ import annotations
@@ -117,6 +118,9 @@ class LantronixConsolePort(DiffSyncModel):
     # Not diffed: it moves on every heartbeat. Written whenever the port is written, from the
     # source record, so it dates the attached-device facts without a change on every run.
     attached_last_seen: str = ""
+    # Not diffed: True when the telemetry view reported this port's state this run, so its
+    # state and attached-device fields are current. Only these ports can change a cable.
+    observed: bool = False
     pk: UUID | None = None
 
     @classmethod

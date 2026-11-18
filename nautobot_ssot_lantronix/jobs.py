@@ -6,10 +6,11 @@ import logging
 
 from diffsync.enum import DiffSyncFlags
 from django.conf import settings
-from nautobot.apps.jobs import register_jobs
+from nautobot.apps.jobs import ChoiceVar, register_jobs
 from nautobot.core.utils.logging import sanitize
 from nautobot_ssot.jobs.base import DataSource
 
+from . import cables
 from . import settings as app_settings
 from .bootstrap import ensure_objects
 from .coverage.job import ConsoleCoverageGate
@@ -24,6 +25,20 @@ name = "Lantronix SSoT"  # job grouping in the Nautobot UI
 # why it failed. This logger has no handler of its own, so with Nautobot's default logging its
 # warnings reach the worker's stderr (`docker logs`); a LOGGING setting can route it.
 worker_log = logging.getLogger("nautobot_ssot_lantronix.sync")
+
+
+def _cable_choices():
+    """Per-run choices for console cable management. Blank follows the app setting, so runs
+    started through the API or a schedule with no inputs (where a checkbox would arrive as
+    off) do what the configuration says."""
+    on = app_settings.manage_cables_setting(
+        settings.PLUGINS_CONFIG.get("nautobot_ssot_lantronix", {})
+    )
+    return (
+        ("", f"App setting ({'on' if on else 'off'})"),
+        ("on", "On for this run"),
+        ("off", "Off for this run"),
+    )
 
 
 class PercepxionDataSource(DataSource):
@@ -44,11 +59,39 @@ class PercepxionDataSource(DataSource):
         soft_time_limit = 7200
         time_limit = 7500
 
+    manage_cables = ChoiceVar(
+        choices=_cable_choices(),
+        required=False,
+        default="",
+        label="Manage console cables",
+        description=(
+            "Make console cables on synced SLC ports match what each SLC reports. Leave it at "
+            "the app setting for scheduled and API runs."
+        ),
+    )
+
     def __init__(self):
         super().__init__()
         # Target-only objects are left alone: the app never deletes.
         self.diffsync_flags = DiffSyncFlags.SKIP_UNMATCHED_DST
         self._config = None
+        self._cables_choice = ""
+
+    def run(self, *args, **kwargs):
+        self._cables_choice = kwargs.get("manage_cables") or ""
+        super().run(*args, **kwargs)
+
+    def cables_enabled(self) -> bool:
+        if self._cables_choice in ("on", "off"):
+            return self._cables_choice == "on"
+        return self.source_config.manage_cables
+
+    def sync_data(self, memory_profiling):
+        super().sync_data(memory_profiling)
+        if self.source_adapter is None or not self.cables_enabled():
+            return
+        # After the device and port sync, from the same Percepxion read: nothing is re-read.
+        cables.manage_cables(self.source_adapter, self.logger, dryrun=self.dryrun, user=self.user)
 
     @property
     def source_config(self):

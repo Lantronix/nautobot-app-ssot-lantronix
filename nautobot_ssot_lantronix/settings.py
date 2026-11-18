@@ -44,6 +44,17 @@ class SourceConfig:
     # Location names an existing device must be in (or under) to be adopted. Empty means
     # default_location only; ("*",) means any location.
     adoption_locations: tuple[str, ...] = ()
+    # Make console cables on synced SLC ports match what each SLC reports (Percepxion becomes
+    # the system of record for them). Off by default.
+    manage_cables: bool = False
+
+
+def manage_cables_setting(app_settings: dict, environ: dict | None = None) -> bool:
+    """The ``manage_cables`` setting on its own, so the job form can show it without loading
+    (and validating) the rest of the settings."""
+    env = os.environ if environ is None else environ
+    raw = app_settings.get("manage_cables", env.get("PERCEPXION_MANAGE_CABLES", ""))
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
 
 
 def _rules(raw: object) -> dict[tuple[str, int, int], str]:
@@ -100,4 +111,5 @@ def load(app_settings: dict, environ: dict | None = None) -> SourceConfig:
         ca_bundle=str(values["ca_bundle"]) or None,
         model_rules=_rules(app_settings.get("model_rules")),
         adoption_locations=_locations(app_settings.get("adoption_locations")),
+        manage_cables=manage_cables_setting(app_settings, env),
     )

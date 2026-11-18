@@ -122,6 +122,7 @@ PLUGINS_CONFIG = {
         # "read_port_config": False,       # don't read each port's SSH port (see Open console)
         "model_rules": {},                 # see Device models
         # "adoption_locations": ["Main Site"],  # where existing devices may be adopted
+        # "manage_cables": True,           # console cables follow the SLC (see Console cables)
     },
 }
 ```
@@ -145,7 +146,8 @@ A device the job can't resolve isn't created; the job log names it and the candi
 | Object | Job writes | Job never changes |
 |---|---|---|
 | Console server (device) | created with name, type, location, role, platform, serial and the Percepxion device ID; management IP in a custom field, never in IPAM | location, role or type of an existing device |
-| Console server port | label (the port's name on the console server), description (attached device hostname), port state and attached-device custom fields | name, cables, anything else |
+| Console server port | label (the port's name on the console server), description (attached device hostname), port state and attached-device custom fields | name, anything else |
+| Console cable | only with `manage_cables` on, see [Console cables](#console-cables) | any cable that doesn't run between a synced console server port and a console port |
 
 The console server is the source of truth for port labels and descriptions. A label edited by hand in Nautobot is overwritten on the next sync; rename the port on the console server instead. An existing Nautobot device is adopted only when it's a Lantronix device on the Lantronix platform (or none) whose serial matches, or that has no serial and the same name; anything else with the same name is reported and left alone. Adoption links the device and renames it to its Percepxion name, with no approval step, and the job log records the old name.
 
@@ -156,6 +158,22 @@ Adoption is limited to devices in `default_location` or a location under it. To 
 Anyone with permission to run **Percepxion to Nautobot** creates and updates console servers and their ports through it, whatever their own object permissions on devices. That is how Nautobot SSoT jobs work. Grant the run permission for this job only to people who should manage that inventory.
 
 The job has a soft time limit of 2 hours and a hard limit 5 minutes later. Change either on the job's edit page under **Jobs > Jobs**.
+
+## Console cables
+
+With `"manage_cables": True` in the app's settings (or `PERCEPXION_MANAGE_CABLES=true` in the environment), each run makes the console cables on synced SLC ports match what the SLC reports, after it syncs devices and ports. Percepxion becomes the system of record for those cables: a cable drawn by hand on a synced SLC port is removed or replaced when the SLC reports something different. It's off by default.
+
+The rules are narrow on purpose:
+
+- A port's cable is removed only when the SLC reports the port **Disconnected**. A port that is Identifying, Unidentified or Authenticating keeps its cable.
+- A cable is created only when the SLC reports an attached device whose serial matches exactly one Nautobot device in the SLCs' locations, narrowed by `adoption_locations` (or, with no serial match, whose name matches exactly one such device, ignoring case), and that device has one console port, or exactly one named Console. A name-only match fills free ports only.
+- A device that turns up on a different SLC port moves once its old port reports Disconnected: its old cable goes and a new one is drawn. The serial and hostname are the attached device's own claim, so a report alone never pulls a cable off a port that still has something plugged in.
+- Cables that end on anything other than a console port, such as a patch panel's front port, are never touched, on either end. The job log reports them.
+- Ports the telemetry view didn't report this run are left as they are.
+
+New cables have status Connected, the label "Observed by SLC discovery" and the tag `lantronix-discovered`. Each change adds a note to the attached device naming the SLC port and the reason, and the job log lists every change and every port it left alone with why. All cable changes in a run are written in one transaction and appear in Nautobot's change log under the job. A dry run logs the plan and writes nothing; because the devices aren't written either, a dry run plans only for SLCs already in Nautobot.
+
+The job's **Manage console cables** input turns it on or off for one run. Leave it at **App setting** for scheduled and API runs, which send no input.
 
 ## Open console
 

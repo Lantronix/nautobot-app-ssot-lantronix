@@ -244,6 +244,7 @@ class PercepxionAdapter(Adapter):
             label=label,
             description=hostname,
             ssh_port=ssh_port,
+            observed=state is not None,
             **attached,
         )
         try:

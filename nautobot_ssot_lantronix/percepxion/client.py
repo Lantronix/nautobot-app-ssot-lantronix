@@ -22,7 +22,7 @@ from .records import PxDevice, PxPort
 from .telemetry import PxPortState, parse_port_states
 
 # The package __init__ imports NetBox or Nautobot, so the version is pinned here, not imported.
-CLIENT_VERSION = "0.6.1"
+CLIENT_VERSION = "0.7.0"
 USER_AGENT = f"nautobot-app-ssot-lantronix/{CLIENT_VERSION}"
 
 LOGIN_PATH = "/v2/user/login"

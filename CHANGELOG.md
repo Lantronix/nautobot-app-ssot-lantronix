@@ -4,6 +4,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-18
+
 ### Added
 
 - Console cable management: with the new `manage_cables` setting on (off by default; `PERCEPXION_MANAGE_CABLES` in the environment), each sync makes the console cables on synced SLC ports match what the SLC reports, so Percepxion becomes the system of record for them. A cable is removed only when the port is Disconnected and created only on a unique serial or hostname match with one clear console port; cables ending on anything but a console port are never touched. New cables carry the tag `lantronix-discovered`, each change adds a note to the attached device, and a dry run only logs the plan. The job's **Manage console cables** input overrides the setting for one run. See **Console cables** in the README.
@@ -104,7 +106,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 ### Added
 - First release. Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion, with ServiceNow console paths and Golden Config backups and compliance for SLC devices.
 
-[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.4.1...v0.5.0

@@ -4,6 +4,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-24
+
 ### Added
 
 - **Events URL**, `POST /api/plugins/ssot-lantronix/events/`, turned on by the new `webhook_secrets` and `sync_user` settings (`PERCEPXION_WEBHOOK_SECRETS`, `PERCEPXION_SYNC_USER`). A signed Percepxion event (webhook-payload v1) for a port attach, port state or device status change syncs that console server within seconds. No Nautobot token; the HMAC signature is the authentication.
@@ -112,7 +114,8 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 ### Added
 - First release. Nautobot SSoT integration that syncs Lantronix console servers, console ports and attached devices from Percepxion, with ServiceNow console paths and Golden Config backups and compliance for SLC devices.
 
-[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/Lantronix/nautobot-app-ssot-lantronix/compare/v0.5.0...v0.6.0

@@ -254,3 +254,52 @@ def test_a_readable_configuration_is_not_overridden_by_what_nautobot_holds():
     earlier.ssh = {"dev-0001": {1: 22001}}
     adapter.keep_unread_ssh_ports(load(earlier, RULES))
     assert get_port(adapter, 1).ssh_port == "3001"
+
+
+class CountingClient(FakeClient):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.state_calls = []
+
+    def port_states(self, pxid, org=None):
+        self.state_calls.append(pxid)
+        return super().port_states(pxid, org)
+
+
+def two_units():
+    states = {
+        "dev-0001": {1: PxPortState(1, "Disconnected", False)},
+        "dev-0002": {1: PxPortState(1, "Disconnected", False)},
+    }
+    return CountingClient(
+        [device(), device("dev-0002", "SLC-B", serial="000000000002")],
+        [port(1), port(1, pxid="dev-0002")],
+        states=states,
+    )
+
+
+def test_focused_load_reads_and_loads_only_the_requested_units():
+    client = two_units()
+    a = PercepxionAdapter(job=Job(), config=cfg(RULES), client=client, focus={"dev-0002"})
+    a.load()
+    assert [d.percepxion_device_id for d in a.get_all(LantronixDevice)] == ["dev-0002"]
+    assert [p.percepxion_device_id for p in a.get_all(LantronixConsolePort)] == ["dev-0002"]
+    assert client.state_calls == ["dev-0002"]
+    assert [c[0] for c in client.ssh_calls] == ["dev-0002"]
+
+
+def test_focused_load_still_refuses_a_name_two_units_share(caplog):
+    client = two_units()
+    client.devices[1] = device("dev-0002", "SLC-A", serial="000000000002")
+    a = PercepxionAdapter(job=Job(), config=cfg(RULES), client=client, focus={"dev-0002"})
+    with caplog.at_level(logging.WARNING):
+        a.load()
+    assert a.get_all(LantronixDevice) == []
+    assert "more than one Percepxion device has this name" in caplog.text
+
+
+def test_no_focus_loads_every_unit():
+    client = two_units()
+    a = load(client, RULES)
+    assert len(a.get_all(LantronixDevice)) == 2
+    assert sorted(client.state_calls) == ["dev-0001", "dev-0002"]

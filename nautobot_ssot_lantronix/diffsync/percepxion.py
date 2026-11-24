@@ -49,11 +49,14 @@ class PercepxionAdapter(Adapter):
     console_port = LantronixConsolePort
     top_level = ("device",)
 
-    def __init__(self, *args, job, config, client, **kwargs):
+    def __init__(self, *args, job, config, client, focus=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.job = job
         self.config = config
         self.client = client
+        # Percepxion device IDs for a focused sync: only these units are loaded, so with
+        # SKIP_UNMATCHED_DST every other device, port and cable in Nautobot is left alone.
+        self.focus = None if focus is None else frozenset(focus)
         self._sysconfig_jobs = None
 
     # -- device type ---------------------------------------------------------------------------
@@ -120,6 +123,8 @@ class PercepxionAdapter(Adapter):
         counts = Counter(name for _, name, _, _ in devices)
         loaded: dict[str, object] = {}
         for dev, name, pxid, serial in devices:
+            if self.focus is not None and pxid not in self.focus:
+                continue
             if counts[name] > 1:
                 log.warning(f"Skipped {name}: more than one Percepxion device has this name")
                 continue

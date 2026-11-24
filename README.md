@@ -108,6 +108,8 @@ The Percepxion endpoint, organization and credentials come only from environment
 | `PERCEPXION_ORG_ID` | The Percepxion organization to sync |
 | `PERCEPXION_CA_BUNDLE` | Optional CA bundle for on-premises Percepxion |
 | `PERCEPXION_VERIFY` | Optional. `false` turns TLS certificate checking off; the job log warns on every run. Prefer `PERCEPXION_CA_BUNDLE`. |
+| `PERCEPXION_WEBHOOK_SECRETS` | Optional. Signing secrets for the events URL, comma-separated, each at least 32 characters. Two while rotating. See [Syncing on change](#syncing-on-change). |
+| `PERCEPXION_SYNC_USER` | Optional. The Nautobot user that focused syncs started by events run as. Required for the events URL. |
 
 ```python
 PLUGINS = ["nautobot_ssot", "nautobot_ssot_lantronix"]
@@ -123,6 +125,8 @@ PLUGINS_CONFIG = {
         "model_rules": {},                 # see Device models
         # "adoption_locations": ["Main Site"],  # where existing devices may be adopted
         # "manage_cables": True,           # console cables follow the SLC (see Console cables)
+        # "webhook_secrets": [...],        # or PERCEPXION_WEBHOOK_SECRETS (see Syncing on change)
+        # "sync_user": "percepxion-sync",  # or PERCEPXION_SYNC_USER
     },
 }
 ```
@@ -174,6 +178,23 @@ The rules are narrow on purpose:
 New cables have status Connected, the label "Observed by SLC discovery" and the tag `lantronix-discovered`. Each change adds a note to the attached device naming the SLC port and the reason, and the job log lists every change and every port it left alone with why. All cable changes in a run are written in one transaction and appear in Nautobot's change log under the job. A dry run logs the plan and writes nothing; because the devices aren't written either, a dry run plans only for SLCs already in Nautobot.
 
 The job's **Manage console cables** input turns it on or off for one run. Leave it at **App setting** for scheduled and API runs, which send no input.
+
+## Syncing on change
+
+**Percepxion to Nautobot** reads every console server. Two jobs keep Nautobot current between its runs by syncing only the units that changed, usually within seconds of the change:
+
+- **Percepxion focused sync** runs the same sync for just the requested console servers, so every other device, port and cable is left alone. Requests that arrive while one waits to start join it, so a burst of changes across a few units becomes one run. If another Percepxion sync is running, it waits for that one and runs after it. Events and the change watch start it; run on its own with nothing waiting, it does nothing. Enable it under **Jobs > Jobs**.
+- **Percepxion change watch** reads each linked console server's port state and requests a focused sync for the ones whose ports changed since its last check. Enable it and schedule it with a custom crontab such as `*/5 * * * *`. It needs no inbound connection, at the cost of one port-state read per unit per check. With events flowing, schedule it rarely or not at all.
+
+**Events.** With `webhook_secrets` and `sync_user` set and the focused sync job enabled, the app takes signed Percepxion events at:
+
+```
+POST /api/plugins/ssot-lantronix/events/
+```
+
+Events use webhook-payload v1: an HMAC-SHA256 signature over `<timestamp>.<body>`, sent in the `X-Percepxion-Timestamp` and `X-Percepxion-Signature: v1=<hex>` headers. The URL needs no Nautobot token, because the signature is the authentication. A port attach, port state or device status event for `PERCEPXION_ORG_ID` requests a focused sync of that console server and answers 202. Other event types and repeated event IDs answer 204. A bad signature, or a timestamp more than 5 minutes off, answers 401. A malformed body, or another organization's event, answers 400. Until events are fully set up, the URL answers 404, and the worker log's `nautobot_ssot_lantronix.events` line says what's missing. Nothing from the event body is logged or stored beyond the device ID. Nautobot has to be reachable from whatever sends the events.
+
+Focused syncs run as `sync_user`, or as the user who scheduled the change watch. They write through the same SSoT job, so the change log and the job results show each one.
 
 ## Open console
 
@@ -240,6 +261,7 @@ Backups use the console server's own configuration export and need a Netmiko rel
 |---|---|
 | Job isn't listed or can't run | **Jobs > Jobs**: enable **Percepxion to Nautobot** after installing or upgrading the app |
 | Job stays pending | The Celery worker isn't running |
+| Events URL answers 404 | Set `webhook_secrets` and `sync_user` (an existing, active user) and enable **Percepxion focused sync**. The worker log's `nautobot_ssot_lantronix.events` line names what's missing. |
 | Job shows **Failed** and you need the reason | The **Sync failed** line in the job result's log, or the `nautobot_ssot_lantronix.sync` line in the worker log (`docker compose logs worker`). The job result's traceback has the full detail. |
 | Job fails with a login error | `PERCEPXION_USERNAME` and `PERCEPXION_PASSWORD`. Fix them and restart Nautobot and the worker. |
 | Job fails with "was redirected" | `PERCEPXION_URL` answers with a redirect. The job never follows redirects; use the final address. |

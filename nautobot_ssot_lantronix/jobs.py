@@ -1,4 +1,5 @@
-"""The Percepxion to Nautobot SSoT data-source job and the console coverage gate job."""
+"""The Percepxion to Nautobot SSoT data-source job, the focused sync and change watch that
+keep it current between full syncs, and the console coverage gate job."""
 
 from __future__ import annotations
 
@@ -6,17 +7,21 @@ import logging
 
 from diffsync.enum import DiffSyncFlags
 from django.conf import settings
-from nautobot.apps.jobs import ChoiceVar, register_jobs
+from django.core.cache import cache
+from nautobot.apps.jobs import ChoiceVar, Job, register_jobs
 from nautobot.core.utils.logging import sanitize
 from nautobot_ssot.jobs.base import DataSource
 
 from . import cables
 from . import settings as app_settings
 from .bootstrap import ensure_objects
+from .constants import CF_DEVICE_ID, MANUFACTURER
 from .coverage.job import ConsoleCoverageGate
 from .diffsync.nautobot import NautobotAdapter
 from .diffsync.percepxion import PercepxionAdapter
 from .percepxion.client import AuthError, PartialData, PercepxionClient, PercepxionUnavailable
+from .percepxion.sync_requests import SyncRequests
+from .percepxion.watch import changed, fingerprint
 from .servicenow import unavailable_reason
 
 name = "Lantronix SSoT"  # job grouping in the Nautobot UI
@@ -25,6 +30,11 @@ name = "Lantronix SSoT"  # job grouping in the Nautobot UI
 # why it failed. This logger has no handler of its own, so with Nautobot's default logging its
 # warnings reach the worker's stderr (`docker logs`); a LOGGING setting can route it.
 worker_log = logging.getLogger("nautobot_ssot_lantronix.sync")
+
+FOCUS_DELAY = 5  # seconds a focused sync waits for more requests to join it
+REQUEUE_DELAY = 15  # seconds before a focused sync that found another sync running tries again
+WATCH_CACHE_TTL = 24 * 60 * 60
+WATCH_KEY = "nautobot_ssot_lantronix:watch"
 
 
 def _cable_choices():
@@ -76,6 +86,7 @@ class PercepxionDataSource(DataSource):
         self.diffsync_flags = DiffSyncFlags.SKIP_UNMATCHED_DST
         self._config = None
         self._cables_choice = ""
+        self._focus = None  # Percepxion device IDs, for a focused sync
 
     def run(self, *args, **kwargs):
         self._cables_choice = kwargs.get("manage_cables") or ""
@@ -113,7 +124,9 @@ class PercepxionDataSource(DataSource):
                 "TLS certificate verification is off for the Percepxion endpoint "
                 "(verify or PERCEPXION_VERIFY). The server's identity isn't checked."
             )
-        self.source_adapter = PercepxionAdapter(job=self, config=cfg, client=client)
+        self.source_adapter = PercepxionAdapter(
+            job=self, config=cfg, client=client, focus=self._focus
+        )
         try:
             client.login()
             self.source_adapter.load()
@@ -139,7 +152,167 @@ class PercepxionDataSource(DataSource):
         self.source_adapter.keep_unread_ssh_ports(self.target_adapter)
 
 
-jobs = [PercepxionDataSource, ConsoleCoverageGate]
+class PercepxionFocusedSync(PercepxionDataSource):
+    """The SSoT sync for only the console servers that changed. Events, the change watch and
+    the events API request it; requests made while one waits to start join it."""
+
+    class Meta:
+        name = "Percepxion focused sync"
+        data_source = "Percepxion"
+        data_target = "Nautobot"
+        description = (
+            "Sync only the Lantronix console servers that events or the change watch reported "
+            "as changed. Started by them; a manual run with nothing waiting does nothing."
+        )
+        has_sensitive_variables = False
+        soft_time_limit = 1800
+        time_limit = 1900
+
+    def run(self, *args, **kwargs):
+        devices = sync_requests().take()
+        if not devices:
+            self.logger.info("No console servers are waiting for a focused sync")
+            return
+        if other_sync_running(self.job_result):
+            # Requests are never dropped for a running sync: they wait for the next run.
+            request_sync(devices, self.user, delay=REQUEUE_DELAY)
+            self.logger.info(
+                "Another Percepxion sync is running; this focused sync runs again after it"
+            )
+            return
+        self._focus = devices
+        self.logger.info(f"Focused sync of {len(devices)} console server(s)")
+        super().run(*args, **kwargs)
+
+
+class PercepxionChangeWatch(Job):
+    """Read each linked console server's port state and request a focused sync for the ones
+    whose ports changed since the last check. Bridges the time until Percepxion sends events;
+    with events, schedule it rarely or not at all."""
+
+    class Meta:
+        name = "Percepxion change watch"
+        description = (
+            "Check each Lantronix console server's port state in Percepxion and sync the ones "
+            "whose ports changed since the last check. Schedule it every few minutes."
+        )
+        has_sensitive_variables = False
+        is_singleton = True
+        soft_time_limit = 1800
+        time_limit = 1900
+
+    def run(self):
+        from nautobot.dcim.models import Device
+
+        raw = settings.PLUGINS_CONFIG.get("nautobot_ssot_lantronix", {})
+        try:
+            cfg = app_settings.load(raw)
+        except app_settings.ConfigError as exc:
+            raise RuntimeError(f"Lantronix SSoT settings: {exc}") from None
+        linked = {
+            (d._custom_field_data or {}).get(CF_DEVICE_ID)
+            for d in Device.objects.filter(device_type__manufacturer__name=MANUFACTURER).only(
+                "_custom_field_data"
+            )
+        } - {None, ""}
+        if not linked:
+            self.logger.info("No console servers linked to Percepxion to watch")
+            return {"watched": 0, "changed": 0, "unread": 0}
+        org = cfg.organization_id
+        current, unread = {}, 0
+        client = PercepxionClient(
+            cfg.url, cfg.username, cfg.password, verify=cfg.verify, ca_bundle=cfg.ca_bundle
+        )
+        try:
+            client.login()
+            for dev in client.iter_devices():
+                if dev.device_id not in linked or org not in dev.org_ids:
+                    continue
+                try:
+                    current[dev.device_id] = fingerprint(client.port_states(dev.device_id, org))
+                except PercepxionUnavailable:
+                    unread += 1  # keeps its last fingerprint, so it's no change
+        except AuthError:
+            raise RuntimeError("Percepxion rejected the login for the configured account") from None
+        except (PercepxionUnavailable, PartialData) as exc:
+            raise RuntimeError(f"Percepxion read failed: {exc}") from None
+        finally:
+            client.logout()
+        previous = cache.get(WATCH_KEY) or {}
+        moved = changed(previous, current)
+        kept = {d: fp for d, fp in previous.items() if d in linked and d not in current}
+        cache.set(WATCH_KEY, {**kept, **current}, WATCH_CACHE_TTL)
+        if moved:
+            request_sync(moved, self.user)
+            self.logger.info(
+                f"Ports changed on {len(moved)} console server(s); focused sync requested"
+            )
+        else:
+            self.logger.info(f"No port changes on {len(current)} console server(s)")
+        return {"watched": len(current), "changed": len(moved), "unread": unread}
+
+
+# -- focused sync requests -------------------------------------------------------------------
+#
+# Events and the change watch ask for some console servers to be synced. Requests made while a
+# focused sync waits to start join it (percepxion/sync_requests).
+
+
+def sync_requests() -> SyncRequests:
+    return SyncRequests(cache, "nautobot_ssot_lantronix:percepxion")
+
+
+def focused_job_model():
+    """The focused sync's Job record, or None before Nautobot has registered it."""
+    from nautobot.extras.models import Job as JobModel
+
+    return JobModel.objects.filter(
+        module_name=__name__, job_class_name=PercepxionFocusedSync.__name__
+    ).first()
+
+
+def request_sync(device_ids, user, delay=FOCUS_DELAY) -> bool:
+    """Ask for a focused sync of these console servers (Percepxion device IDs), run as
+    ``user``. Returns True if this call enqueued the job, False if the IDs joined one already
+    waiting. Raises RuntimeError when the focused sync job isn't enabled."""
+    from nautobot.extras.models import JobResult
+
+    requests = sync_requests()
+    if not requests.add(device_ids):
+        return False
+    try:
+        job_model = focused_job_model()
+        if job_model is None or not job_model.enabled:
+            raise RuntimeError("The Percepxion focused sync job isn't enabled")
+        JobResult.enqueue_job(
+            job_model,
+            user,
+            job_kwargs={"dryrun": False, "memory_profiling": False, "manage_cables": ""},
+            celery_kwargs={"countdown": delay},
+        )
+    except Exception:
+        requests.release()
+        raise
+    return True
+
+
+def other_sync_running(job_result) -> bool:
+    """True while another Percepxion sync (full or focused) is running."""
+    from nautobot.extras.choices import JobResultStatusChoices
+    from nautobot.extras.models import JobResult
+
+    names = (PercepxionDataSource.__name__, PercepxionFocusedSync.__name__)
+    running = JobResult.objects.filter(
+        job_model__module_name=__name__,
+        job_model__job_class_name__in=names,
+        status=JobResultStatusChoices.STATUS_STARTED,
+    )
+    if job_result is not None:
+        running = running.exclude(pk=job_result.pk)
+    return running.exists()
+
+
+jobs = [PercepxionDataSource, PercepxionFocusedSync, PercepxionChangeWatch, ConsoleCoverageGate]
 
 # Optional ServiceNow console-path job: only when nautobot-ssot's ServiceNow
 # integration is enabled and importable, so core installs need no ServiceNow extras.

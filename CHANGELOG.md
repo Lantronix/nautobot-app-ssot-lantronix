@@ -4,6 +4,12 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 
 ## [Unreleased]
 
+### Added
+
+- **Events URL**, `POST /api/plugins/ssot-lantronix/events/`, turned on by the new `webhook_secrets` and `sync_user` settings (`PERCEPXION_WEBHOOK_SECRETS`, `PERCEPXION_SYNC_USER`). A signed Percepxion event (webhook-payload v1) for a port attach, port state or device status change syncs that console server within seconds. No Nautobot token; the HMAC signature is the authentication.
+- **Percepxion focused sync** job: the SSoT sync for only the console servers that events or the change watch reported, leaving every other device, port and cable alone. Requests made while one waits to start join it. Enable it under **Jobs > Jobs**.
+- **Percepxion change watch** job: schedule it to check each linked console server's port state and sync the ones whose ports changed. For sites where nothing can reach Nautobot.
+
 ## [0.7.0] - 2026-11-18
 
 ### Added

@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
+from .percepxion.events import usable_secrets
 from .percepxion.resolver import SLC9000_SLUGS
 
 ENV = {
@@ -47,6 +48,10 @@ class SourceConfig:
     # Make console cables on synced SLC ports match what each SLC reports (Percepxion becomes
     # the system of record for them). Off by default.
     manage_cables: bool = False
+    # Signing secrets for the events URL (webhook-payload v1); empty turns the URL off.
+    webhook_secrets: tuple[str, ...] = field(default=(), repr=False)
+    # Nautobot user that focused syncs started by events run as.
+    sync_user: str = ""
 
 
 def manage_cables_setting(app_settings: dict, environ: dict | None = None) -> bool:
@@ -55,6 +60,14 @@ def manage_cables_setting(app_settings: dict, environ: dict | None = None) -> bo
     env = os.environ if environ is None else environ
     raw = app_settings.get("manage_cables", env.get("PERCEPXION_MANAGE_CABLES", ""))
     return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _webhook_secrets(app_settings: dict, env) -> tuple[str, ...]:
+    raw = app_settings.get("webhook_secrets", env.get("PERCEPXION_WEBHOOK_SECRETS"))
+    try:
+        return tuple(usable_secrets(raw))
+    except ValueError as exc:
+        raise ConfigError(f"webhook_secrets (PERCEPXION_WEBHOOK_SECRETS): {exc}") from None
 
 
 def _rules(raw: object) -> dict[tuple[str, int, int], str]:
@@ -112,4 +125,6 @@ def load(app_settings: dict, environ: dict | None = None) -> SourceConfig:
         model_rules=_rules(app_settings.get("model_rules")),
         adoption_locations=_locations(app_settings.get("adoption_locations")),
         manage_cables=manage_cables_setting(app_settings, env),
+        webhook_secrets=_webhook_secrets(app_settings, env),
+        sync_user=str(app_settings.get("sync_user") or env.get("PERCEPXION_SYNC_USER") or ""),
     )

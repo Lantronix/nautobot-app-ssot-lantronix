@@ -78,3 +78,31 @@ def test_manage_cables_is_off_by_default():
 )
 def test_manage_cables_from_app_settings_or_environment(app, env, expected):
     assert load(app, {**ENV, "PERCEPXION_MANAGE_CABLES": env}).manage_cables is expected
+
+
+SECRET = "w" * 40
+
+
+def test_events_are_off_by_default():
+    cfg = load({}, ENV)
+    assert (cfg.webhook_secrets, cfg.sync_user) == ((), "")
+
+
+def test_webhook_secrets_and_sync_user_from_app_settings_or_environment():
+    cfg = load({"webhook_secrets": [SECRET], "sync_user": "px-sync"}, ENV)
+    assert (cfg.webhook_secrets, cfg.sync_user) == ((SECRET,), "px-sync")
+    env = {
+        **ENV,
+        "PERCEPXION_WEBHOOK_SECRETS": f"{SECRET}, {'v' * 32}",
+        "PERCEPXION_SYNC_USER": "u",
+    }
+    cfg = load({}, env)
+    assert (cfg.webhook_secrets, cfg.sync_user) == ((SECRET, "v" * 32), "u")
+    assert SECRET not in repr(cfg)
+
+
+@pytest.mark.parametrize("raw", ["short", ["w" * 40, "x"], {"a": 1}, [1]])
+def test_bad_webhook_secrets_are_refused_without_their_value(raw):
+    with pytest.raises(ConfigError) as exc:
+        load({"webhook_secrets": raw}, ENV)
+    assert "webhook_secrets" in str(exc.value) and "short" not in str(exc.value)
